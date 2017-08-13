@@ -59,5 +59,10 @@
   		<artifactId>motive</artifactId>
   		<version>0.0.1-SNAPSHOT</version>
   	</dependency>
+	<dependency>
+ 		<groupId>org.rdfhdt</groupId>
+ 		<artifactId>hdt-java-core</artifactId>
+ 		<version>1.1</version>
+ 	</dependency>  
   </dependencies>
 </project>
