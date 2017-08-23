@@ -37,6 +37,8 @@ import nl.peterbloem.kit.Series;
  * }
  * </pre
  * 
+ * NB: Currently only works for connected graphs.
+ * 
  * @author Peter
  *
  */
@@ -66,10 +68,10 @@ public class Nauty
 		
 		// * Start with the unit partition
 		Partition partition = unitPartition();
-
+		
 		// * The equitable refinement procedure.
 		while(searchShattering(partition));
-	
+			
 		// * Start the search for the maximal isomorph
 		Search search = new Search(partition);
 		search.search();
@@ -77,7 +79,7 @@ public class Nauty
 		Partition max = search.max();
 		this.canonical = reorder(max);
 	}
-	
+	 
 	
 	/**
 	 * Create the initial partition. Each non-variable node/tag gets its own color
@@ -126,7 +128,7 @@ public class Nauty
 	}
 
 	private boolean searchShattering(Partition partition)
-	{
+	{		
 		boolean a = searchShatteringTags(partition);
 		boolean b = searchShatteringNodes(partition);
 		
@@ -140,7 +142,7 @@ public class Nauty
 			{
 				List<Integer> nodeCell = partition.first().get(i);
 				List<Integer> linkCell = partition.second().get(j);
-				
+								
 				if(tagsShatterNodes(nodeCell, linkCell))
 				{
 					// * Refine the node cell
@@ -266,7 +268,7 @@ public class Nauty
 	 * @param to
 	 * @return
 	 */
-	public boolean tagsShatterNodes(List<Integer> nodes, List<Integer> tags)
+	private boolean tagsShatterNodes(List<Integer> nodes, List<Integer> tags)
 	{
 		int lastInDegree = -1, lastOutDegree = -1;
 		Set<Integer> tagSet = new HashSet<Integer>(tags);
@@ -283,9 +285,9 @@ public class Nauty
 			for(DTLink<Integer, Integer> link : node.linksOut())
 				if(tagSet.contains(link.tag()))
 					outDegree ++;
-			
+						
 			if(lastInDegree != -1)
-				if(lastInDegree != inDegree && lastOutDegree != outDegree)
+				if(lastInDegree != inDegree || lastOutDegree != outDegree)
 					return true;
 			
 			lastInDegree = inDegree;
@@ -304,7 +306,7 @@ public class Nauty
 	 * @param to
 	 * @return
 	 */
-	public boolean nodesShatterTags(List<Integer> nodes, List<Integer> tags)
+	private boolean nodesShatterTags(List<Integer> nodes, List<Integer> tags)
 	{
 		
 		int lastFromDegree = -1, lastToDegree = -1;
@@ -323,7 +325,7 @@ public class Nauty
 			}
 			
 			if(lastFromDegree != -1)
-				if(lastFromDegree != fromDegree && lastFromDegree != fromDegree)
+				if(lastFromDegree != fromDegree || lastToDegree != toDegree)
 					return true;
 			
 			lastFromDegree = fromDegree;
@@ -341,19 +343,21 @@ public class Nauty
 	 */
 	public DTGraph<Integer, Integer> reorder(Partition partition)
 	{
-		List<Integer> labels = new ArrayList<Integer>(pattern.labels());
-		Collections.sort(labels);
+		List<Triple> triples = toString(partition);
 		
 		DTGraph<Integer, Integer> out = new MapDTGraph<>();
 		
-		for(Integer label : labels)
-			out.add(label);
-		
-		for(DTLink<Integer, Integer> link : pattern.links())
+		for(Triple t : triples)
 		{
-			DTNode<Integer, Integer> from = out.node(link.from().label());
-			DTNode<Integer, Integer> to   = out.node(link.to().label());
-			from.connect(to, link.tag());
+			DTNode<Integer, Integer> subject = out.node(t.subject);
+			DTNode<Integer, Integer> object = out.node(t.object);
+			
+			if(subject == null)
+				subject = out.add(t.subject);
+			if(object == null)
+				object = out.add(t.object);
+			
+			subject.connect(object, t.predicate);
 		}
 		
 		return out;
@@ -361,7 +365,7 @@ public class Nauty
 	
 	public DTGraph<Integer, Integer> canonical()
 	{
-		return canonical();
+		return canonical;
 	}
 
 	private static class Partition extends Pair<List<List<Integer>>, List<List<Integer>>>
@@ -385,7 +389,7 @@ public class Nauty
 		private Deque<SNode> buffer = new LinkedList<SNode>();
 		
 		private SNode max = null;
-		private String maxString;
+		private List<Triple> maxString;
 
 		public Search(Partition startPartition)
 		{
@@ -409,16 +413,16 @@ public class Nauty
 		}
 		
 		private void observe(SNode node)
-		{
-			String nodeString = Nauty.this.toString(node.partition());
+		{						
+			List<Triple> nodeString = Nauty.this.toString(node.partition());
 			
-			if(max == null || nodeString.compareTo(maxString) > 0)
+			if(max == null || compare(nodeString, maxString) > 0)
 			{
 				max = node;
 				maxString = nodeString;
 			}
 		}
-		
+	
 		public Partition max()
 		{
 			return max.partition();
@@ -506,11 +510,12 @@ public class Nauty
 	 * @param partition
 	 * @return
 	 */
-	private String toString(Partition partition)
-	{				
-		StringBuffer buffer = new StringBuffer();
+	private List<Triple> toString(Partition partition)
+	{	
+		List<Triple> triples = new ArrayList<Triple>((int)pattern.numLinks());
 		
 		int negLabel = -1, negTag = -1; // next available negative label
+
 		Map<Integer, Integer> newLabels = new HashMap<>();
 		Map<Integer, Integer> newTags = new HashMap<>();
 		
@@ -538,9 +543,6 @@ public class Nauty
 		
 		for(List<Integer> cell : partition.first())
 		{
-
-			buffer.append(" "+cell.get(0)+" ");
-		
 			DTNode<Integer, Integer> current = pattern.node(cell.get(0));
 			
 			List<Pair<Integer, Integer>> neighbors = new ArrayList<>(current.neighbors().size());
@@ -553,12 +555,55 @@ public class Nauty
 			
 			Collections.sort(neighbors, new Pair.NaturalPairComparator<>());
 			for(Pair<Integer, Integer> pair : neighbors)
-				buffer.append(pair.first()).append(' ').append(pair.second()).append(' ');
-			
-			buffer.append(',');
+				triples.add(new Triple(newLabels.get(cell.get(0)), pair.first(), pair.second()));
 		}
-		
-		return buffer.toString();
+				
+		return triples;
 	}
 	
+	
+	private class Triple {
+		int subject, predicate, object;
+
+		public Triple(int subject, int predicate, int object)
+		{
+			this.subject = subject;
+			this.predicate = predicate;
+			this.object = object;
+		}
+
+		private int compareTo(Triple o)
+		{
+			int c = Integer.compare(subject, o.subject);
+			if(c != 0)
+				return c;
+			
+			c = Integer.compare(predicate, o.predicate);
+			if(c != 0)
+				return c;
+			
+			return Integer.compare(object, o.object);		
+		}
+
+		@Override
+		public String toString()
+		{
+			return subject + " " + predicate + " " + object;
+		}
+	}
+	
+	public static int compare(List<Triple> a, List<Triple> b)
+	{
+		if(a.size() != b.size())
+			return Integer.compare(a.size(), b.size());
+		
+		for(int i : series(a.size()))
+		{
+			int c = a.get(i).compareTo(b.get(i));
+			if(c != 0)
+				return c;
+		}
+		
+		return 0;
+	}
 }
