@@ -28,7 +28,7 @@ import nl.peterbloem.kit.Series;
 public class NautyTest
 {
 
-	public DTGraph<Integer, Integer> graph1()
+	public static DTGraph<Integer, Integer> graph1()
 	{
 		DTGraph<Integer, Integer> graph = new MapDTGraph<>();
 		
@@ -46,7 +46,7 @@ public class NautyTest
 		return graph;
 	}
 	
-	public DTGraph<Integer, Integer> graph2()
+	public static DTGraph<Integer, Integer> graph2()
 	{
 		DTGraph<Integer, Integer> graph = new MapDTGraph<>();
 		
@@ -67,7 +67,7 @@ public class NautyTest
 // expected <digraph {-2 -> -5 [label=0]; -5 -> -4 [label=0]; -3 -> -5 [label=0]; -4 -> -3 [label=0]; -4 -> -2 [label=0]}> 
 //      was <digraph {-1 -> -2 [label=0]; -2 -> -3 [label=0]; -3 -> -4 [label=0]; -3 -> -1 [label=0]; -4 -> -2 [label=0]}>
 
-	public DTGraph<Integer, Integer> graph3()
+	public static DTGraph<Integer, Integer> graph3()
 	{
 		DTGraph<Integer, Integer> graph = new MapDTGraph<>();
 		
@@ -89,7 +89,7 @@ public class NautyTest
 // expected: <digraph {-2 -> -5 [label=0]; -5 -> -4 [label=0]; -3 -> -5 [label=0]; -4 -> -3 [label=0]; -4 -> -2 [label=0]}> 
 //  but was: <digraph {-1 -> -4 [label=0]; -4 -> -3 [label=0]; -2 -> -4 [label=0]; -3 -> -2 [label=0]; -3 -> -1 [label=0]}>
 
-	public DTGraph<Integer, Integer> graph4()
+	public static DTGraph<Integer, Integer> graph4()
 	{
 		DTGraph<Integer, Integer> graph = new MapDTGraph<>();
 		
@@ -109,7 +109,7 @@ public class NautyTest
 	
 
 	
-	public DTGraph<Integer, Integer> random(int n, int m, int numTags, int nVar, int mVar)
+	public static DTGraph<Integer, Integer> random(int n, int m, int numTags, int nVar, int mVar)
 	{
 		for(int j : series(500))
 		{
@@ -303,7 +303,7 @@ public class NautyTest
 	public void testCanonicalPermutedRandom()
 	{
 		
-		for(int rep : series(1000))
+		for(int rep : series(100))
 		{
 			int n = Global.random().nextInt(10) + 3;
 			int m = Global.random().nextInt(Math.min(36, n * n - n - n)) + n;
@@ -316,11 +316,11 @@ public class NautyTest
 		}
 	}
 
-	// @Test
+	@Test
 	public void testCanonicalPermutedSlow()
 	{
 		Functions.tic();
-		testCanonicalPermuted(1, 11, 4, 3, 10, 0);
+		testCanonicalPermuted(1, 11, 22, 3, 10, 0);
 		System.out.println(Functions.toc() + " seconds");
 	}
 	
@@ -329,7 +329,9 @@ public class NautyTest
 	{
 		int r = 100;
 		Functions.tic();
-		testCanonicalPermuted(r, 11, 4, 3, 8, 0);
+		int n = 20;
+		int m = (n * n - n)/2;
+		testCanonicalPermuted(r, n, m, 1, n, m);
 		
 		System.out.println();
 		System.out.println((Functions.toc() / (double)r) + " seconds");
@@ -354,5 +356,56 @@ public class NautyTest
     		
     		Functions.dot(i, repeats);
 		}
+	}
+	
+	
+	@Test
+	public void testOneMore()
+	{
+		DTGraph<Integer, Integer> graph = new MapDTGraph<>();
+		
+		DTNode<Integer,Integer> n1 = graph.add(0),
+		                        n2 = graph.add(-1),
+		                        n3 = graph.add(1),
+		                        n4 = graph.add(-2),
+		                        n5 = graph.add(2),
+		                        n6 = graph.add(-3);
+		
+		n1.connect(n2, 1);
+		n2.connect(n3, -1);
+		n3.connect(n4, 1);
+		n4.connect(n5, -1);
+		n5.connect(n6, 1);
+		n6.connect(n1, -1);
+		
+		n1.connect(n3, -2);
+		n3.connect(n5, -2);
+		n5.connect(n1, -2);
+
+		DTGraph<Integer, Integer> graph2 = new MapDTGraph<>();
+		
+		DTNode<Integer,Integer> m1 = graph2.add(0),
+		                        m2 = graph2.add(-11),
+		                        m3 = graph2.add(1),
+		                        m4 = graph2.add(-12),
+		                        m5 = graph2.add(2),
+		                        m6 = graph2.add(-13);
+		
+		m1.connect(m2, 1);
+		m2.connect(m3, -3);
+		m3.connect(m4, 1);
+		m4.connect(m5, -3);
+		m5.connect(m6, 1);
+		m6.connect(m1, -3);
+		
+		m1.connect(m3, -1);
+		m3.connect(m5, -1);
+		m5.connect(m1, -1);	
+		
+		assertEquals(Nauty.canonical(graph), Nauty.canonical(graph2));
+	
+		System.out.println(Nauty.canonical(graph));
+		System.out.println(Nauty.canonical(graph2));
+
 	}
 }

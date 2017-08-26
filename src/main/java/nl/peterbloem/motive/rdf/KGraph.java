@@ -19,6 +19,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -508,6 +509,16 @@ public class KGraph implements
 		@Override
 		public KLink connect(TNode<Integer, Integer> other, Integer tag) 
 		{
+			assert(tag != null);
+			if(tag < 0)
+				throw new IllegalArgumentException("Negative tags not allowed. Input was " + tag);
+			
+			if(tag > maxTag + 1)
+				throw new IllegalArgumentException("Tag ("+tag+") too large. Tags must be contigous integers, the largest tag allowd is one larger than the largest tag currently in the graph ("+maxTag+")");
+				
+			maxTag = Math.max(tag, maxTag);
+
+			
 			check();
 			int fromIndex = index, toIndex = other.index();
 
@@ -516,6 +527,7 @@ public class KGraph implements
 
 			outTags.get(fromIndex).add(tag);
 			inTags.get(toIndex).add(tag);
+			
 
 			modCount++;			
 			numLinks++;
@@ -1502,7 +1514,63 @@ public class KGraph implements
 
 		}
 
-		
 		return graph;
+	}
+	
+	public static List<List<Integer>> degrees(DTGraph<Integer, Integer> graph)
+	{
+		List<Integer> inDegrees = new ArrayList<>(graph.size());
+		List<Integer> outDegrees = new ArrayList<>(graph.size());
+		
+		List<Integer> tags = new ArrayList<>(graph.tags());
+		List<Integer> tagDegrees = new ArrayList<>(tags.size());
+
+		Map<Integer, Integer> tag2Index = new LinkedHashMap<>();
+		for(int i : Series.series(tags.size()))
+			tag2Index.put(tags.get(i), i);
+		
+		for(int i : series(graph.size()))
+			inDegrees.add(0);
+		for(int i : series(graph.size()))
+			outDegrees.add(0);
+		for(int i : series(tag2Index.size()))
+			tagDegrees.add(0);
+		
+		for(DTLink<Integer, Integer> link : graph.links())
+		{
+			inc(link.from().index(), outDegrees);
+			inc(link.to().index(), inDegrees);
+			inc(tag2Index.get(link.tag()), tagDegrees);
+		}
+		
+		return Arrays.asList(inDegrees, outDegrees, tagDegrees);
+	}
+	
+	public static List<List<Integer>> degrees(KGraph graph)
+	{
+		List<Integer> in = new ArrayList<>(graph.size());
+		List<Integer> out = new ArrayList<>(graph.size());
+		List<Integer> tag = new ArrayList<>(graph.tags().size());
+		
+		for(int i : series(graph.size()))
+			in.add(0);
+		for(int i : series(graph.size()))
+			out.add(0);
+		for(int i : series(graph.tags().size()))
+			tag.add(0);
+		
+		for(DTLink<Integer, Integer> link : graph.links())
+		{
+			inc(link.from().index(), out);
+			inc(link.to().index(), in);
+			inc(link.tag(), tag);
+		}
+		
+		return Arrays.asList(in, out, tag);
+	}
+	
+	private static void inc(int i, List<Integer> list)
+	{
+		list.set(i, list.get(i) + 1);
 	}
 }

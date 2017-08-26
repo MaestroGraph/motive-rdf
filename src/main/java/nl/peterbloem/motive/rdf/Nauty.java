@@ -23,6 +23,7 @@ import org.nodes.MapDTGraph;
 import org.nodes.Node;
 import org.nodes.TGraph;
 
+import nl.peterbloem.kit.Global;
 import nl.peterbloem.kit.Order;
 import nl.peterbloem.kit.Pair;
 import nl.peterbloem.kit.Series;
@@ -44,15 +45,46 @@ import nl.peterbloem.kit.Series;
  */
 public class Nauty
 {
-
+	// * If the search takes longer than this number of miliseconds, log a message
+	private static final int LOG_INTERVAL = 10000; 
+	
 	public static DTGraph<Integer, Integer> canonical(DTGraph<Integer, Integer> pattern)
 	{
 		return new Nauty(pattern).canonical;
 	}
 	
+	public static DTGraph<Integer, Integer> canonical(DTGraph<Integer, Integer> pattern, List<Integer> values)
+	{
+		Nauty nauty = new Nauty(pattern);
+
+		int numVarLabels = 0;
+		for(int label : pattern.labels())
+			if(label < 0)
+				numVarLabels ++;
+		
+		List<Integer> nwValues = new ArrayList<>(values.size());
+		
+		for(List<Integer> cell : nauty.maxPartition.first())
+			if(cell.get(0) < 0)
+				nwValues.add(values.get(-cell.get(0) - 1));
+		
+		for(List<Integer> cell : nauty.maxPartition.second())
+			if(cell.get(0) < 0)
+				nwValues.add(values.get(-cell.get(0) - 1 + numVarLabels));
+
+		values.clear();
+		values.addAll(nwValues);
+		
+		return nauty.canonical;
+	}
+	
 	private DTGraph<Integer, Integer> pattern;
 	private Map<Integer, List<DTLink<Integer, Integer>>> tagToLink = new LinkedHashMap<>();
 	private DTGraph<Integer, Integer> canonical;
+	private Partition maxPartition;
+
+	long t0 = System.currentTimeMillis();
+	long tLast = t0;
 		
 	private Nauty(DTGraph<Integer, Integer> pattern)
 	{
@@ -76,8 +108,8 @@ public class Nauty
 		Search search = new Search(partition);
 		search.search();
 		
-		Partition max = search.max();
-		this.canonical = reorder(max);
+		maxPartition = search.max();
+		this.canonical = reorder(maxPartition);
 	}
 	 
 	
@@ -421,6 +453,12 @@ public class Nauty
 				max = node;
 				maxString = nodeString;
 			}
+			
+			if(System.currentTimeMillis() - tLast > LOG_INTERVAL)
+			{
+				Global.log().warning(((System.currentTimeMillis() - t0)/1000.0) + " seconds taken. Current pattern: " + pattern);
+				tLast = System.currentTimeMillis();
+			}
 		}
 	
 		public Partition max()
@@ -428,7 +466,6 @@ public class Nauty
 			return max.partition();
 		}
 	}
-	
 	
 	private static class SNode
 	{

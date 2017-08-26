@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -274,7 +275,26 @@ public class KGraphTest
 		
 		System.out.println(graph.size());
 		System.out.println(graph.numLinks());
+	}
+	
+	@Test
+	public void testTags()
+			throws IOException
+	{
+		KGraph graph = Datasets.dogfood();
 
+		Set<Integer> tags = new LinkedHashSet<Integer>();
+		for(KLink link : graph.links())
+			tags.add(link.tag());
+		
+		List<Integer> t1 = new ArrayList<>(tags);
+		List<Integer> t2 = new ArrayList<>(graph.tags());
+		
+		Collections.sort(t1);
+		Collections.sort(t2);
+		
+		assertEquals(t1, t2);
+		
 	}
 	
 	//@Test
