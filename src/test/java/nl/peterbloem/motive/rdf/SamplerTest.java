@@ -1,8 +1,10 @@
 package nl.peterbloem.motive.rdf;
 
 import static nl.peterbloem.kit.Series.series;
+import static nl.peterbloem.motive.rdf.EdgeListModel.codelength;
 import static org.junit.Assert.*;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -11,6 +13,8 @@ import org.nodes.DGraph;
 import org.nodes.DTGraph;
 import org.nodes.LightDGraph;
 
+import nl.peterbloem.kit.Functions;
+import nl.peterbloem.kit.Global;
 import nl.peterbloem.kit.IntegerModel;
 import nl.peterbloem.kit.OnlineModel;
 import nl.peterbloem.kit.Pair;
@@ -40,33 +44,44 @@ public class SamplerTest
 	}
 	
 	@Test 
+	public void testCL()
+	{
+		KGraph data = Datasets.dogfood();
+
+		System.out.println(codelength(data, Prior.COMPLETE));
+		for(int i : Series.series(100))
+		{
+			List<KLink> links = Functions.list(data.links());
+			int ind = Global.random().nextInt(links.size());
+			KLink link = links.remove(ind);
+			link.remove();
+			
+			System.out.println(codelength(data, Prior.COMPLETE));
+		}
+	}
+	
+	@Test 
 	public void testRun()
 	{
 		KGraph data = Datasets.dogfood();
-		System.out.println(data.get(46900));
-		System.out.println(data.get(46900).inDegree() + " " + data.get(46900).outDegree());
-			
-		System.out.println(data.get(46900).linksOut());
-		System.out.println(data.get(46900).linksIn());
-
 		
 		List<List<Integer>> degrees = KGraph.degrees(data);
 
-		double nullBits = EdgeListModel.codelength(degrees, Prior.ML);
+		double nullBits = EdgeListModel.codelength(degrees, Prior.COMPLETE);
 		
 		System.out.println("Size under null model (ML Bound) " +  nullBits);
 		
-		Sampler sampler = new Sampler(data, 1000000, 3, 5, 5, 5);
+		Sampler sampler = new Sampler(data, 1000000, 100000, 3, 5, 5);
 		
-		for(DTGraph<Integer, Integer> pattern : sampler.patterns().subList(0, Math.min(sampler.patterns().size(), 25)))
+		for(DTGraph<Integer, Integer> pattern : sampler.patterns().subList(0, 25))
 		{
 			System.out.println(
 					sampler.instances(pattern).size() + " " +
 					sampler.instances(pattern).get(0) + " " + pattern);
 			
 			double motifBits = MotifCode.codelength(degrees, pattern, sampler.instances(pattern));
-			System.out.println(motifBits);
-			System.out.println("compression factor: " + (nullBits - motifBits));
+			// System.out.println(motifBits);
+			System.out.println(" compression factor: " + (nullBits - motifBits));
 
 		}
 	}

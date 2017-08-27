@@ -60,31 +60,19 @@ public class MotifCode
 		
 		fm.add("pattern", patternBits);
 		
-		// * The template
-		// collect the triples described by the instances
-		List<Triple> triples = new ArrayList<Triple>();
-		
-		System.out.println(degrees.get(1).get(46900));
-
+		// * The template		
 		// - copy the degree vector 
 		degrees = asList(new ArrayList<>(degrees.get(0)), new ArrayList<>(degrees.get(1)), new ArrayList<>(degrees.get(2)));
 		
-		for(int i : series(values.get(0).size()))
-			triples.addAll(Sampler.triples(pattern, values.get(i)));
-			
+		// - collect the triples described by the instances
+		List<Triple> triples = Sampler.allTriples(pattern, values);
+		
 		for(Triple triple : triples)
 		{
 			int s = triple.subject(), p = triple.predicate(), o = triple.object();
 			
 			dec(o, degrees.get(0)); // in
 			dec(s, degrees.get(1)); // out
-			if(degrees.get(1).get(s) < 0)
-			{
-				System.out.println(s);
-				System.out.println(triple);
-				System.out.println(triples);
-				System.out.println(Functions.min(degrees.get(1)));
-			}
 			dec(p, degrees.get(2)); // predicate
 		}
 		

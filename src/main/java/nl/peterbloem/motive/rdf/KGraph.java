@@ -1573,4 +1573,64 @@ public class KGraph implements
 	{
 		list.set(i, list.get(i) + 1);
 	}
+	
+	/**
+	 * Turn a pattern for a KGraph into a string-based pattern. PNonegative labels 
+	 * and tags are replaced by their original IRI, negative ones are replaced 
+	 * by "?ni" for nodes, and "?pi" for predicates (with i the index of the variable). 
+	 * 
+	 * @return
+	 */
+	public static DTGraph<String, String> recover(DTGraph<Integer, Integer> pattern, List<String> nodes, List<String> tags)
+	{
+		DTGraph<String, String> result = new MapDTGraph<>();
+		
+		for(DTNode<Integer, Integer> node : pattern.nodes())
+		{
+			String label = node.label() < 0 ? "?n" + (- node.label()) : nodes.get(node.label());
+			result.add(label);
+		}
+		
+		for(DTLink<Integer, Integer> link : pattern.links())
+		{
+			int f = link.from().index(), t = link.to().index();
+			String tag = link.tag() < 0 ? "?p" + (-link.tag()) : tags.get(link.tag());
+			
+			result.get(f).connect(result.get(t), tag);
+		}
+			
+		return result;
+	}
+	
+	/**
+	 * 
+	 * @param pattern
+	 * @return
+	 */
+	public static String bgp(DTGraph<String, String> pattern)
+	{
+		StringBuilder builder = new StringBuilder();
+		
+		for(DTLink<String, String> link : pattern.links())
+			builder.append(link.from() + " " + link.tag() + " " + link.to() + ". ");
+
+		return builder.toString();
+	}
+	
+	/**
+	 * @param values
+	 * @param numVars
+	 * @param nodes
+	 * @param tags
+	 * @return
+	 */
+	public static List<String> recover(List<Integer> values,  List<String> map)
+	{
+		List<String> result = new ArrayList<>(values.size());
+		
+		for(int i : series(values.size()))
+			result.add(map.get(i));
+		
+		return result;
+	}
 }

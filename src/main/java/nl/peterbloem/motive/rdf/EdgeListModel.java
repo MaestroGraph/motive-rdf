@@ -38,9 +38,6 @@ public class EdgeListModel
 			bits -= log2Factorial(outDegree);
 		for(int relDegree : degrees.get(2))
 			bits -= log2Factorial(relDegree);
-		
-		System.out.println("prior " + prior);
-		System.out.println("rest  " + bits);
 
 		return bits + prior;
 	}

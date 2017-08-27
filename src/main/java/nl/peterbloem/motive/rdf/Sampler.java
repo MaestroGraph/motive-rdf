@@ -42,7 +42,7 @@ import nl.peterbloem.kit.Series;
 public class Sampler
 {
 	private static final int MAX_TRIES = 500;
-	private static final int PRUNE_EVERY = 50000;
+	private int pruneEvery = 500000;
 	private static final int PRUNE_BELOW_FREQ = 2;
 	
 	private KGraph data;
@@ -56,40 +56,25 @@ public class Sampler
 	private MotifVarTags mvTop = null;
 	
 	private Map<DTGraph<Integer, Integer>, List<List<Integer>>> sample;
-	private int minFreq = 1;
+	private static final int minFreq = 1;
 	
 	private FrequencyModel<DTGraph<Integer, Integer>> fm;
 	
-	private int maxVarLabels = Integer.MAX_VALUE;
-	private int maxVarTags = Integer.MAX_VALUE;
+	private int maxVar = Integer.MAX_VALUE;
+
 	
 	public Sampler(
 			KGraph data,
-			int numSamples,
-			int minSize,
-			int maxSize,
-			int maxVarLabels,
-			int maxVarTags)
-	{
-		this(data, numSamples, minSize, maxSize, 1, maxVarLabels, maxVarTags);
-	}
-	
-	
-	public Sampler(
-			KGraph data,
-			int numSamples,
-			int minSize,
-			int maxSize,
-			int minFreq,	
-			int maxVarLabels,
-			int maxVarTags)
+			int numSamples, int pruneEvery,
+			int minSize, int maxSize,
+			int maxVar)
 	{	
 		this.data = data;
-		this.samples = numSamples;
-		this.minFreq = minFreq;
 		
-		this.maxVarLabels = maxVarLabels;
-		this.maxVarTags = maxVarTags;
+		this.samples = numSamples;
+		this.pruneEvery = pruneEvery;
+		
+		this.maxVar = maxVar;
 		
 		intGen = Generators.uniform(minSize, maxSize + 1);
 		
@@ -152,7 +137,7 @@ public class Sampler
 			
 			List<Integer> values = new ArrayList<Integer>();
 			int size = intGen.generate();
-			DTGraph<Integer, Integer> sub = sample(data, size, values, maxVarLabels, maxVarTags);
+			DTGraph<Integer, Integer> sub = sample(data, size, values, maxVar);
 						
 			// * record the occurrence
 			if (!sample.containsKey(sub))
@@ -160,7 +145,7 @@ public class Sampler
 
 			sample.get(sub).add(values);
 			
-			if(i % PRUNE_EVERY == 0)
+			if(i % pruneEvery == 0)
 			{				
 				System.out.print('!');
 				prune();
@@ -196,16 +181,28 @@ public class Sampler
 	}
 	
 	/**
+	 * Generates instantiated triples of a pattern for all values. If the values
+	 * generate overlapping matches, the resulting list contains their triples
+	 * multiple times. 
+	 * 
+	 */
+	public static List<Triple> allTriples(DTGraph<Integer, Integer> pattern, List<List<Integer>> values)
+	{	
+		List<Triple> triples = new ArrayList<Triple>();
+		for(int i : series(values.size()))
+			triples.addAll(Sampler.triples(pattern, values.get(i)));
+		
+		return triples;
+	}
+	
+	/**
 	 * Generates instantiated triples of a pattern 
 	 */
 	public static List<Triple> triples(DTGraph<Integer, Integer> pattern, List<Integer> values)
 	{	
 		List<Triple> result = new ArrayList<>((int)pattern.numLinks());
 		
-		int numVarLabels = 0;
-		for(int label : pattern.labels())
-			if(label < 0)
-				numVarLabels ++;
+		int numVarLabels = Utils.numVarLabels(pattern);
 				
 		for(DTLink<Integer, Integer> link : pattern.links())
 		{
@@ -234,7 +231,7 @@ public class Sampler
 	 * @param values The instantiations of the variable nodes/links
 	 * @return
 	 */
-	public static DTGraph<Integer, Integer> sample(KGraph data, int size, List<Integer> values, int maxVarLabels, int maxVarTags)
+	public static DTGraph<Integer, Integer> sample(KGraph data, int size, List<Integer> values, int maxVar)
 	{
 		SimpleSubgraphGenerator gen = new SimpleSubgraphGenerator(data, size);
 		
@@ -262,8 +259,14 @@ public class Sampler
     		// * make some links/nodes variable
     		int nextTag = -1, nextLabel = -1;
     		
-    		int linksToVar = random().nextInt(min((int)sub.numLinks(), maxVarTags));
-    		int nodesToVar = random().nextInt(min(sub.size(), maxVarLabels));
+    		int totalVar = random().nextInt(min((int)sub.numLinks() + sub.size(), maxVar));
+    		int linksToVar = random().nextInt(totalVar + 1);
+    		int nodesToVar = totalVar - linksToVar;
+    		
+    		
+    		linksToVar = min(linksToVar, (int)sub.numLinks());
+    		nodesToVar = min(nodesToVar, sub.size());
+    		
     		Set<Integer> linksToChange = new HashSet<>(Functions.sampleInts(linksToVar, (int)sub.numLinks()));
     		Set<Integer> nodesToChange = new HashSet<>(Functions.sampleInts(nodesToVar, sub.size()));
 

@@ -25,8 +25,6 @@ public class EdgeListModelTest
 		System.out.println(bits + " " + Functions.exp2(bits));
 		// assertTrue(bits > 0.0);
 		
-		
-		
 		bits = org.nodes.models.EdgeListModel.directed(asList(2, 1, 0), asList(0, 1, 2), org.nodes.models.DegreeSequenceModel.Prior.NONE);
 		
 		System.out.println(bits + " " + Functions.exp2(bits));
