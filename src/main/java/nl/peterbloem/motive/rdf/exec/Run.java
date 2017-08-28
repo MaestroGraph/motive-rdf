@@ -9,7 +9,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Random;
 
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.nodes.DTGraph;
 
@@ -32,7 +35,7 @@ public class Run
 	@Option(
 			name="--samples",
 			usage="Number of samples to take.")
-	private static int samples = 10000000;
+	private static int samples = 5000000;
 	
 	@Option(
 			name="--prune-every",
@@ -50,13 +53,49 @@ public class Run
 	private static int maxSize = 6;
 	
 	@Option(
+			name="--retain",
+			usage="Nr of motifs retained (by frequency)")
+	private static int retain = 100;
+	
+	@Option(
 			name="--max-vars",
 			usage="Maximum number of variables in a single motif")
 	private static int maxVars = 6;
+	
+	@Option(name="--fast-py", usage="Use fast PY model (don't optimize the prameters). Much faster computation of compression factors, less effective compresssion.")
+	private static boolean fastPY = false;
 
+	@Option(name="--help", usage="Print usage information.", aliases={"-h"}, help=true)
+	private static boolean help = false;
+	
 	public static void main(String[] args)
 		throws IOException
 	{
+		Global.randomSeed();
+		
+		Run run = new Run();
+		
+		// * Parse the command-line arguments
+    	CmdLineParser parser = new CmdLineParser(run);
+    	try
+		{
+			parser.parseArgument(args);
+		} catch (CmdLineException e)
+		{
+	    	System.err.println(e.getMessage());
+	        System.err.println("java -jar motive.jar [options...]");
+	        parser.printUsage(System.err);
+	        
+	        System.exit(1);	
+	    }
+    	
+    	if(help)
+    	{
+	        parser.printUsage(System.out);
+	        
+	        System.exit(0);	
+    	}
+		
 		List<String> nodes = new ArrayList<>();
 		List<String> relations = new ArrayList<>();
 		
@@ -72,10 +111,13 @@ public class Run
 		
 		Global.log().info("Finished sampling, " + sampler.patterns().size() + " patterns found.");
 		
-		List<DTGraph<Integer, Integer>> patterns = new ArrayList<>(sampler.patterns());
+		List<DTGraph<Integer, Integer>> patterns = new ArrayList<>(sampler.patterns(retain));
 		List<Double> codelengths = new ArrayList<>(patterns.size());
 		for(DTGraph<Integer, Integer> pattern : patterns)
-			codelengths.add(MotifCode.codelength(degrees, pattern, sampler.instances(pattern)));
+		{
+			codelengths.add(MotifCode.codelength(degrees, pattern, sampler.instances(pattern), fastPY));
+			Global.log().info(" compression factor: " + (nullBits - codelengths.get(codelengths.size()-1)) );
+		}
 		
 		Functions.sort(patterns, codelengths, Functions.natural());
 		
@@ -84,19 +126,22 @@ public class Run
 		FileWriter motifList = new FileWriter(new File("motifs.csv"));
 		
 		int i = 0;
-		for(DTGraph<Integer, Integer> pattern : sampler.patterns())
+		for(DTGraph<Integer, Integer> pattern : patterns)
 		{
 			Global.log().info("Pattern: " + i + " " + pattern);
 			Global.log().info(" code length        : " + codelengths.get(i));
 			Global.log().info(" compression factor : " + (nullBits - codelengths.get(i)));
 			
+			List<List<Integer>> instances = sampler.instances(pattern);
+			
 			String bgp = KGraph.bgp(KGraph.recover(pattern, nodes, relations));
-			motifList.write(i + "," + (nullBits - codelengths.get(i)) + ", " + bgp + " \n");
+			motifList.write(i + ", " + instances.size() + ", " + (nullBits - codelengths.get(i)) + ", " + bgp + " \n");
 			
 			FileWriter values = 
 					new FileWriter(new File(String.format("instances.%05d.csv", i)));
-			for(List<Integer> vals : sampler.instances(pattern))
-			{
+			
+			for(List<Integer> vals : instances)
+			{				
 				int nvl = numVarLabels(pattern);
 				
 				List<Integer> ns = vals.subList(0, nvl);
@@ -105,7 +150,7 @@ public class Run
 				List<String> strs = new ArrayList<>(vals.size());
 				strs.addAll(KGraph.recover(ns, nodes));
 				strs.addAll(KGraph.recover(ts, relations));
-				
+								
 				for(int j : series(strs.size()))
 				{
 					if(j != 0)

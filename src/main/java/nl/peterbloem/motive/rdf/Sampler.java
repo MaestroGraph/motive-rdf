@@ -166,6 +166,12 @@ public class Sampler
 		return fm.sorted();
 	}
 	
+	public List<DTGraph<Integer, Integer>> patterns(int max)
+	{
+		List<DTGraph<Integer, Integer>> list = fm.sorted();
+		return list.subList(0, Math.min(list.size(), max));
+	}
+	
 	public List<List<Integer>> instances(DTGraph<Integer, Integer> pattern)
 	{
 		return sample.get(pattern);

@@ -39,6 +39,13 @@ public class MotifCode
 			List<List<Integer>> degrees, 
 			DTGraph<Integer, Integer> pattern, List<List<Integer>> values)
 	{
+		return codelength(degrees, pattern, values, false);
+	}
+	
+	public static double codelength(
+			List<List<Integer>> degrees, 
+			DTGraph<Integer, Integer> pattern, List<List<Integer>> values, boolean fastPY)
+	{
 		// * number of links in the graph
 		long m = 0;
 		for(int degree : degrees.get(0))
@@ -83,18 +90,16 @@ public class MotifCode
 		int n = values.get(0).size();
 		for(int val : pattern.labels())
 			if(val < 0)
-				labelBits += PitmanYorModel.storeIntegersOpt(repeat(val, n));
+				labelBits += fastPY ? PitmanYorModel.storeIntegers(repeat(val, n)) : PitmanYorModel.storeIntegersOpt(repeat(val, n));
 		for(int val : pattern.tags())
 			if(val < 0)
-				labelBits += PitmanYorModel.storeIntegersOpt(repeat(val, n));
+				labelBits += fastPY ? PitmanYorModel.storeIntegers(repeat(val, n)) : PitmanYorModel.storeIntegersOpt(repeat(val, n));
 		
 		for(List<Integer> sequence : values)
-			labelBits += PitmanYorModel.storeIntegersOpt(sequence);
+			labelBits += fastPY ? PitmanYorModel.storeIntegers(sequence) : PitmanYorModel.storeIntegersOpt(sequence);
 
 		fm.add("labels", labelBits);
-		
-		fm.print(System.out);
-		
+				
 		return fm.total();
 	}
 

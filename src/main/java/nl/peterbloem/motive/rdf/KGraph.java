@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.zip.GZIPInputStream;
 
 import org.nodes.DGraph;
 import org.nodes.DLink;
@@ -1339,7 +1340,7 @@ public class KGraph implements
 	}
 	
 	/**
-	 * @param file
+	 * @param file HDT file, or gzipped HDT file
 	 * @param nodes
 	 * @param relations
 	 * @return
@@ -1354,6 +1355,8 @@ public class KGraph implements
 		KGraph graph = new KGraph();
 		
 		HDT hdt = HDTManager.loadIndexedHDT(
+				file.getName().endsWith(".gz")?
+			    new BufferedInputStream(new GZIPInputStream(new FileInputStream(file))) :
 				new BufferedInputStream(new FileInputStream(file)), null);
 	
 		nodes.clear();
@@ -1406,7 +1409,9 @@ public class KGraph implements
     	{
     		hdt.close();
     	}
-		
+    	
+    	System.out.println(recover(Arrays.asList(34, 134, 1034, 2034), nodes));
+
 		return graph;
 	}	
 	
@@ -1629,7 +1634,7 @@ public class KGraph implements
 		List<String> result = new ArrayList<>(values.size());
 		
 		for(int i : series(values.size()))
-			result.add(map.get(i));
+			result.add(map.get(values.get(i)));
 		
 		return result;
 	}
