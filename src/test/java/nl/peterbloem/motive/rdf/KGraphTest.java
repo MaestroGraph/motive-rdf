@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -26,6 +27,7 @@ import org.nodes.MapDTGraph;
 import org.nodes.Node;
 import org.nodes.data.Data;
 import org.nodes.data.Examples;
+import org.nodes.random.SimpleSubgraphGenerator;
 
 import nl.peterbloem.kit.Functions;
 import nl.peterbloem.kit.Global;
@@ -560,5 +562,34 @@ public class KGraphTest
 			
 			assertEquals(nbsList, nbsFastList);			
 		}
+	}
+	
+	@Test
+	public void testSort()
+	{
+		KGraph data = Datasets.test();
+
+		data.sort();
+		
+		for(KNode node : data.nodes())
+		{
+			
+			assertTrue(sorted(data.neighborsFastIn(node)));
+			
+			assertTrue(sorted(data.neighborsFastOut(node)));
+
+		}
+	}
+
+	public static boolean sorted(List<KNode> list)
+	{
+		if(list.isEmpty())
+			return true;
+		
+		for(int i : series(list.size() - 1))
+			if(list.get(i).index() > list.get(i+1).index())
+				return false;
+		
+		return true;
 	}
 }

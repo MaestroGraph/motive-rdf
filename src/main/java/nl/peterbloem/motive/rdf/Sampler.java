@@ -2,12 +2,15 @@ package nl.peterbloem.motive.rdf;
 
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.util.Arrays.asList;
+import static java.util.Collections.sort;
 import static nl.peterbloem.kit.Functions.sampleInts;
 import static nl.peterbloem.kit.Global.random;
 import static nl.peterbloem.kit.Pair.p;
 import static nl.peterbloem.kit.Series.series;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -84,7 +87,6 @@ public class Sampler
 	private void prune()
 	{		
 		// * Remove overlapping occurrences 
-		//   (keep the ones with the lowest exdegrees)
 		FrequencyModel<DTGraph<Integer, Integer>> newFm = 
 				new FrequencyModel<>();
 		Map<MapDTGraph<Integer, Integer>, List<List<Integer>>> newOccurrences = 
@@ -247,6 +249,37 @@ public class Sampler
     		
     		// * Extract induced subgraph
     		DTGraph<Integer, Integer> sub = Subgraph.dtSubgraphIndices(data, indices);
+    		 
+    		boolean printPattern = false;
+    		if(sub.size() == 4 && sub.numLinks() == 3)
+    		{
+    			printPattern = true;
+    			
+    			List<Integer> tags = new ArrayList(sub.tags());
+    			
+    			Set<Integer> froms = new HashSet<>();
+    			Set<Integer> tos = new HashSet<>();
+    			
+    			for(DTLink<Integer, Integer> link : sub.links())
+    			{
+    				froms.add(link.from().label());
+    				tos.add(link.to().label());
+    			}
+    			
+    			List<Integer> fl = new ArrayList<>(froms);
+    			List<Integer> tl = new ArrayList<>(tos);
+    			
+    			sort(tags);
+    			sort(fl);
+    			sort(tl);
+    			
+    			if(
+    					tags.equals(asList(0, 1, 2)) && 
+    					fl.size() == 1 && 
+    					(tl.equals(asList(0,1)) || tl.equals(asList(0)) || tl.equals(asList(1))) 
+    				)
+    				printPattern = true;
+    		}
     		
     		// * remove some links
     		int linksToRemove = Global.random().nextInt(max((int)sub.numLinks() - sub.size(), 1));
@@ -322,6 +355,26 @@ public class Sampler
         		    		
     		// * Reorder nodes to canonical ordering;
     		pattern = Nauty.canonical(pattern, values);
+    		
+    		
+    		if(printPattern)
+    		{
+    			System.out.println();
+    			System.out.println(sub);
+    			System.out.println(pattern);
+    		}
+    		{
+    			DTGraph<Integer, Integer> t = new MapDTGraph<>();
+    			DTNode<Integer, Integer> n1 = t.add(-1);
+    			n1.connect(t.add(-2), 0);
+    			n1.connect(t.add(-3), 1);
+    			n1.connect(t.add(-4), 2);
+    			
+    			t = Nauty.canonical(t);
+    			
+    			if(pattern.equals(t))
+    				System.out.println("&");
+    		}
     		
     		if(print)
 			{

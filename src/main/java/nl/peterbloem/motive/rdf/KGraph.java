@@ -1,7 +1,9 @@
 package nl.peterbloem.motive.rdf;
 
 import static nl.peterbloem.kit.Functions.concat;
+import static nl.peterbloem.kit.Functions.dot;
 import static nl.peterbloem.kit.Series.series;
+import static nl.peterbloem.motive.rdf.Pref.shorten;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -1111,6 +1113,11 @@ public class KGraph implements
 			return i >= 0 && i < size;
 		}
 	};
+	
+	public List<KNode> nodes(List<Integer> indices)
+	{
+		return new NodeList(indices);
+	}
 
 	@Override
 	public List<KNode> neighborsFast(Node<Integer> node)
@@ -1124,6 +1131,17 @@ public class KGraph implements
 		
 		return new NodeList(indices);
 	}
+
+	public List<KNode> neighborsFastIn(Node<Integer> node)
+	{
+		return new NodeList(in.get(node.index()));
+	}
+			
+	public List<KNode> neighborsFastOut(Node<Integer> node)
+	{
+		return new NodeList(out.get(node.index()));
+	}
+
 	
 	private boolean eq(Object a, Object b)
 	{
@@ -1210,6 +1228,8 @@ public class KGraph implements
 		
 		for(int i : Series.series(out.size()))
 			Collections.sort(out.get(i));
+		
+		
 		
 		sorted = true;
 	}
@@ -1365,6 +1385,7 @@ public class KGraph implements
     	try {
     		IteratorTripleString it = hdt.search("", "", "");
     
+    		int total = (int)it.estimatedNumResults(), i = 0;
     
         	while(it.hasNext()) 
         	{
@@ -1396,11 +1417,13 @@ public class KGraph implements
         			tag = nextTag;
         			nextTag ++;
         			
-        			relationMap.put(predicate, nextTag);
+        			relationMap.put(predicate, tag);
         			relations.add(predicate);
         		}
         		    							
         		graph.get(node1).connect(graph.get(node2), tag);
+        		
+        		// dot(i++, total);
         	}
     	} catch (NotFoundException e)
     	{
@@ -1409,8 +1432,6 @@ public class KGraph implements
     	{
     		hdt.close();
     	}
-    	
-    	System.out.println(recover(Arrays.asList(34, 134, 1034, 2034), nodes));
 
 		return graph;
 	}	
@@ -1617,7 +1638,7 @@ public class KGraph implements
 		StringBuilder builder = new StringBuilder();
 		
 		for(DTLink<String, String> link : pattern.links())
-			builder.append(link.from() + " " + link.tag() + " " + link.to() + ". ");
+			builder.append(shorten(link.from().label()) + " " + shorten(link.tag()) + " " + shorten(link.to().label()) + ". ");
 
 		return builder.toString();
 	}
@@ -1633,8 +1654,8 @@ public class KGraph implements
 	{
 		List<String> result = new ArrayList<>(values.size());
 		
-		for(int i : series(values.size()))
-			result.add(map.get(values.get(i)));
+		for(int value : values)
+			result.add(map.get(value));
 		
 		return result;
 	}

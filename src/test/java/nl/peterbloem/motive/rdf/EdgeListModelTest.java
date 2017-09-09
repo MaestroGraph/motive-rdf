@@ -29,5 +29,4 @@ public class EdgeListModelTest
 		
 		System.out.println(bits + " " + Functions.exp2(bits));
 	}
-
 }

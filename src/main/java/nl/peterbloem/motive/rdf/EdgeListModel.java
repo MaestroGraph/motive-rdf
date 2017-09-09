@@ -11,7 +11,7 @@ import nl.peterbloem.kit.PitmanYorModel;
 
 public class EdgeListModel
 {
-	public static enum Prior {NONE, ML, COMPLETE}; 
+	public static enum Prior {NONE, ML, COMPLETE, COMPLETE_FAST}; 
 
 	
 	public static double codelength(KGraph data, Prior prior)
@@ -20,7 +20,7 @@ public class EdgeListModel
 	}
 		
 	public static double codelength(List<List<Integer>> degrees, Prior priorType)
-	{
+	{	
 		double prior = prior(degrees, priorType);
 		
 		// number of links in the graph
@@ -70,7 +70,15 @@ public class EdgeListModel
 				       PitmanYorModel.storeIntegersOpt(degrees.get(2));
 		}
 		
-		throw new IllegalStateException();
+		if(prior == Prior.COMPLETE_FAST)
+		{
+			return prefix(degrees.get(0).size()) + prefix(degrees.get(2).size()) + 
+				       PitmanYorModel.storeIntegers(degrees.get(0)) + 
+				       PitmanYorModel.storeIntegers(degrees.get(1)) + 
+				       PitmanYorModel.storeIntegers(degrees.get(2));
+		}
+		
+		throw new IllegalStateException("Prior mode unkown: " + prior);
 	}	
 	
 }

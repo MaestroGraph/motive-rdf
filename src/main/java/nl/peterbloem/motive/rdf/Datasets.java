@@ -1,5 +1,7 @@
 package nl.peterbloem.motive.rdf;
 
+import static nl.peterbloem.kit.Series.series;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -7,6 +9,10 @@ import java.util.List;
 
 import org.nodes.data.Data;
 import org.nodes.data.Examples;
+
+import nl.peterbloem.kit.Global;
+import nl.peterbloem.kit.Series;
+import nl.peterbloem.motive.rdf.KGraph.KNode;
 
 public class Datasets
 {
@@ -28,6 +34,44 @@ public class Datasets
 		{
 			throw new RuntimeException("Could not load the file for the Semantic Web dogfood graph from the classpath.", e);
 		}
+	}
+	
+	public static KGraph test()
+	{
+		return test(new ArrayList<String>(), new ArrayList<String>());
+	}
+	
+	public static KGraph test(List<String> labels, List<String> tags)
+	{
+		int TYPE1 = 1500, TYPE2 = 15000;
+		KGraph g = new KGraph();
+		KNode yes = g.add(), no = g.add(); 
+		
+		for(int i : series(TYPE1))
+		{
+			KNode node = g.add();
+			
+			node.connect(Global.random().nextBoolean() ? yes : no, 0);
+			node.connect(Global.random().nextBoolean() ? yes : no, 1);
+			node.connect(Global.random().nextBoolean() ? yes : no, 2);
+		}
+		
+//		for(int i : series(TYPE2))
+//		{
+//			KNode node = g.add();
+//			
+//			node.connect(Global.random().nextBoolean() ? yes : no, 3);
+//			node.connect(Global.random().nextBoolean() ? yes : no, 4);
+//			node.connect(Global.random().nextBoolean() ? yes : no, 5);
+//		}
+		
+		for(KNode node : g.nodes())
+			labels.add(""+node.label());
+		
+		for(int tag : g.tags())
+			tags.add(""+tag);
+		
+		return g;
 	}
 
 }
