@@ -19,7 +19,7 @@ import nl.peterbloem.kit.FrequencyModel;
 import nl.peterbloem.kit.Functions;
 import nl.peterbloem.kit.PitmanYorModel;
 import nl.peterbloem.kit.Series;
-import nl.peterbloem.motive.rdf.KGraph.KNode;
+import nl.peterbloem.motive.rdf.KGraphList.KNode;
 
 import static java.lang.Math.abs;
 import static java.util.Arrays.asList;
@@ -34,7 +34,7 @@ public class MotifCode
 
 	/**
 	 * 
-	 * @param degrees The graph degrees in de order: indegrees, outdegrees, predicate-degrees.
+	 * @param degrees The graph degrees in the order: indegrees, outdegrees, predicate-degrees.
 	 * @param pattern
 	 * @param values
 	 * @param prior
@@ -70,7 +70,7 @@ public class MotifCode
 		
 		// * Pattern (structure)
 		double patternBits = 0.0;
-		List<List<Integer>> patternDegrees = KGraph.degrees(pattern);
+		List<List<Integer>> patternDegrees = KGraphList.degrees(pattern);
 		
 		patternBits += EdgeListModel.codelength(patternDegrees, Prior.COMPLETE);
 		
@@ -90,7 +90,7 @@ public class MotifCode
 		List<Triple> triples = Sampler.allTriples(pattern, values);
 		
 		//System.out.println("Collected triples: " + toc());
-
+		// System.out.println(values);
 		for(Triple triple : triples)
 		{
 			int s = triple.subject(), p = triple.predicate(), o = triple.object();
@@ -100,6 +100,8 @@ public class MotifCode
 			degsub.get(2).inc(p);
 		}
 		
+		// System.out.println(degrees);
+		// System.out.println(degsub);
 		//System.out.println("Computed new degree sequence: " + toc());
 		
 		degrees = asList(
@@ -189,7 +191,7 @@ public class MotifCode
 		double patternBits = 0.0;
 		for(DTGraph<Integer, Integer> pattern : patterns)
 		{
-			List<List<Integer>> patternDegrees = KGraph.degrees(pattern);
+			List<List<Integer>> patternDegrees = KGraphList.degrees(pattern);
 			patternBits += EdgeListModel.codelength(patternDegrees, Prior.COMPLETE);
 		}
 		
@@ -412,7 +414,7 @@ public class MotifCode
 		
 			for(List<Integer> instance : patternValues)
 			{
-				List<Triple> triples = Sampler.triples(pattern, instance);
+				List<Triple> triples = Utils.triples(pattern, instance);
 				
 				if(! contains(seen, triples))
 				{
@@ -426,7 +428,36 @@ public class MotifCode
 	}
 	
 	/**
+	 * Prunes the list of values for the given list of patterns. For every triple 
+	 * produced twice, the instance providing the later occurrence is removed.
+	 * 
+	 * @param patterns
+	 * @param values
+	 * @return
+	 */
+	public static List<List<Integer>> prune(DTGraph<Integer, Integer> pattern, List<List<Integer>> matches)
+	{		
+		List<List<Integer>> result = new ArrayList<>(matches.size());
+		Set<Triple> seen = new HashSet<>();
+					
+		for(List<Integer> instance : matches)
+		{
+			List<Triple> triples = Utils.triples(pattern, instance);
+			
+			if(! contains(seen, triples))
+			{
+				result.add(instance);
+				seen.addAll(triples);
+			}
+		}
+		
+		
+		return result;
+	}
+	
+	/**
 	 * True if the set contains one or more of the collection of elements 
+	 * 
 	 * @param set
 	 * @param elements
 	 * @return

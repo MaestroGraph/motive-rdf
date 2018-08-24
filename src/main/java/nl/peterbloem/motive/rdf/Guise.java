@@ -19,11 +19,11 @@ import org.nodes.random.SimpleSubgraphGenerator;
 import nl.peterbloem.kit.AbstractGenerator;
 import nl.peterbloem.kit.Global;
 import nl.peterbloem.kit.Series;
-import nl.peterbloem.motive.rdf.KGraph.KNode;
+import nl.peterbloem.motive.rdf.KGraphList.KNode;
 
 public class Guise extends AbstractGenerator<List<Integer>>
 {
-	private KGraph data;
+	private KGraphList data;
 	
 	private int size;
 
@@ -32,7 +32,7 @@ public class Guise extends AbstractGenerator<List<Integer>>
 
 	private int skipSize;
 	
-	public Guise(KGraph data, int size, int skipSize)
+	public Guise(KGraphList data, int size, int skipSize)
 	{
 		assert(skipSize > 0);
 		
@@ -75,11 +75,14 @@ public class Guise extends AbstractGenerator<List<Integer>>
 
 	/**
 	 * Count the number of neighbors in the subgraph-graph of the current 
-	 * selection of nodes  
+	 * selection of nodes.
+	 * 
+	 * (the degree of node 'current' in the Guise graph)
+	 *   
 	 * @param current
 	 * @return
 	 */
-	public static int count(List<Integer> current, KGraph data)
+	public static int count(List<Integer> current, KGraphList data)
 	{
 		assert(current.size() == new HashSet<>(current).size());
 		
@@ -112,11 +115,12 @@ public class Guise extends AbstractGenerator<List<Integer>>
 	}
 
 	/**
-	 * Selectthe n-th neighbor of the  
+	 * Select the n-th neighbor of the 'current' node.
+	 *   
 	 * @param current
 	 * @return
 	 */
-	public static List<Integer> select(int k, List<Integer> current, KGraph data)
+	public static List<Integer> select(int k, List<Integer> current, KGraphList data)
 	{
 		assert(current.size() == new HashSet<>(current).size());
 		
@@ -160,12 +164,11 @@ public class Guise extends AbstractGenerator<List<Integer>>
 		return null;
 	}
 
-
-
-
 	/**
-	 * Produces the union of an arbitrary number of sorted lists. Equality is 
+	 * Produces the intersection of an arbitrary number of sorted lists. Equality is 
 	 * determined by the comparator.
+	 * 
+	 * Result is not backed by the inputs.
 	 * 
 	 * @param lists
 	 * @param c

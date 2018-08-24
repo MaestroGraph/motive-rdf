@@ -29,7 +29,7 @@ import nl.peterbloem.kit.Pair;
 import nl.peterbloem.kit.Series;
 
 /**
- * Partial implementation of the Nauty algorithm specifically for patterns.
+ * Partial implementation of the Nauty algorithm, specifically for patterns.
  * 
  * Example use:
  * <pre>

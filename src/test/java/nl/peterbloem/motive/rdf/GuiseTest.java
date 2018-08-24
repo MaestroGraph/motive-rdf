@@ -22,7 +22,7 @@ import org.nodes.random.SimpleSubgraphGenerator;
 import nl.peterbloem.kit.Functions;
 import nl.peterbloem.kit.Global;
 import nl.peterbloem.kit.Series;
-import nl.peterbloem.motive.rdf.KGraph.KNode;
+import nl.peterbloem.motive.rdf.KGraphList.KNode;
 
 public class GuiseTest
 {
@@ -71,7 +71,7 @@ public class GuiseTest
 	@Test
 	public void testUnion3()
 	{
-		KGraph data = Datasets.test();
+		KGraphList data = Datasets.test();
 		data.sort();
 
 		for(int size : series(2, 8))
@@ -185,7 +185,7 @@ public class GuiseTest
 	@Test
 	public void testCount()
 	{
-		KGraph g = new KGraph();
+		KGraphList g = new KGraphList();
 		
 		g.add();
 		g.add();
@@ -223,7 +223,7 @@ public class GuiseTest
 	@Test
 	public void testSelect()
 	{
-		KGraph g = new KGraph();
+		KGraphList g = new KGraphList();
 		
 		g.add();
 		g.add();
@@ -264,24 +264,26 @@ public class GuiseTest
 	public void generatorTest()
 	{
 		
-		KGraph data = Datasets.test();
+		KGraphList data = Datasets.test();
 		
-		Guise gen = new Guise(data, 3, 10);
+		Guise gen = new Guise(data, 3, 10000);
 		
-		for(int i : series(1000))
+		for(int i : series(100))
 		{
 			List<Integer> cur = gen.generate(); 
 			if(cur.contains(0) && cur.contains(1))
-				System.out.println(cur);
+			  System.out.println(cur);
 		}
+		
+		System.out.println('.');
 		
 		SimpleSubgraphGenerator gen2 = new SimpleSubgraphGenerator(data, 3);
 		
-		for(int i : series(1000))
+		for(int i : series(100))
 		{
 			List<Integer> cur = gen2.generate(); 
 			if(cur.contains(0) && cur.contains(1))
-				System.out.println(cur);
+			  System.out.println(cur);
 		}
 	}
 }

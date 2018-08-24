@@ -14,9 +14,9 @@ public class EdgeListModel
 	public static enum Prior {NONE, ML, COMPLETE, COMPLETE_FAST}; 
 
 	
-	public static double codelength(KGraph data, Prior prior)
+	public static double codelength(KGraphList data, Prior prior)
 	{
-		return codelength(KGraph.degrees(data), prior);
+		return codelength(KGraphList.degrees(data), prior);
 	}
 		
 	public static double codelength(List<List<Integer>> degrees, Prior priorType)

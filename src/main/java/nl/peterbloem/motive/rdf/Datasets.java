@@ -38,32 +38,32 @@ public class Datasets
 	
 	public static KGraph test()
 	{
-		return test(new ArrayList<String>(), new ArrayList<String>());
+		return test(150, new ArrayList<String>(), new ArrayList<String>());
 	}
 	
-	public static KGraph test(List<String> labels, List<String> tags)
+	public static KGraph test(int middle)
 	{
-		int TYPE1 = 1500, TYPE2 = 15000;
-		KGraph g = new KGraph();
-		KNode yes = g.add(), no = g.add(); 
+		return test(middle, new ArrayList<String>(), new ArrayList<String>());
+	}
+	
+	public static KGraph test(int middle, List<String> labels, List<String> tags)
+	{
 		
-		for(int i : series(TYPE1))
+		List<Triple> triples = new ArrayList<Triple>(middle + 2);
+		int yes = 0, no = 1; 
+		
+		for(int node : series(2, middle + 2))
 		{
-			KNode node = g.add();
 			
-			node.connect(Global.random().nextBoolean() ? yes : no, 0);
-			node.connect(Global.random().nextBoolean() ? yes : no, 1);
-			node.connect(Global.random().nextBoolean() ? yes : no, 2);
+//			node.connect(Global.random().nextBoolean() ? yes : no, 0);
+//			node.connect(Global.random().nextBoolean() ? yes : no, 1);
+//			node.connect(Global.random().nextBoolean() ? yes : no, 2);
+			
+			triples.add(Triple.t(node, 0, yes));
+			triples.add(Triple.t(node, 1, no));
 		}
 		
-//		for(int i : series(TYPE2))
-//		{
-//			KNode node = g.add();
-//			
-//			node.connect(Global.random().nextBoolean() ? yes : no, 3);
-//			node.connect(Global.random().nextBoolean() ? yes : no, 4);
-//			node.connect(Global.random().nextBoolean() ? yes : no, 5);
-//		}
+		KGraph g = new KGraph(triples);
 		
 		for(KNode node : g.nodes())
 			labels.add(""+node.label());

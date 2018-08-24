@@ -1,6 +1,10 @@
 package nl.peterbloem.motive.rdf;
 
+import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.reverse;
 import static nl.peterbloem.kit.Series.series;
+import static nl.peterbloem.motive.rdf.Triple.t;
 import static org.junit.Assert.*;
 
 import java.io.File;
@@ -41,19 +45,16 @@ public class KGraphTest
 	@Test
 	public void testKGraph()
 	{
-		DTGraph<Integer, Integer> graph = new KGraph();
+		DTGraph<Integer, Integer> graph = new KGraph(emptyList());
 	}
 
 	@Test
 	public void testToString()
 	{
-		KGraph graph = new KGraph();
+		List<Triple> triples = 
+				asList(t(0, 0, 1));
 		
-		KNode a = graph.add(),
-		      b = graph.add();
-		graph.add();
-	
-		a.connect(b);
+		KGraph graph = new KGraph(triples);
 		
 		System.out.println(graph);
 	}
@@ -61,106 +62,153 @@ public class KGraphTest
 	@Test
 	public void starTest()
 	{
-		KGraph graph = new KGraph();
 		
-		KNode a = graph.add(),
-		      b = graph.add(),
-		      c = graph.add(),
-		      d = graph.add(),
-		      e = graph.add();
-	
-		b.connect(a);
-		c.connect(a);
-		d.connect(a);
-		e.connect(a);
+		List<Triple> triples = 
+				asList(
+					t(0, 0, 1),
+					t(0, 0, 2),
+					t(0, 0, 3),
+					t(0, 0, 4),
+					t(0, 0, 5)
+				);
 		
-		System.out.println(graph);
-		System.out.println(e.index());
-		
-		e.disconnect(a);
-		
-		System.out.println(graph);
-		System.out.println(e.index());
-		
-		a.remove();
+		KGraph graph = new KGraph(triples);
 		
 		System.out.println(graph);
 		
-		System.out.println(graph.size());
-		assertEquals(0, graph.numLinks());
+		System.out.println(graph);
+		System.out.println(graph.get(4).index());
+		
+//		e.disconnect(a);
+//		
+//		System.out.println(graph);
+//		System.out.println(e.index());
+//		
+//		a.remove();
+//		
+//		System.out.println(graph);
+//		
+//		System.out.println(graph.size());
+//		assertEquals(0, graph.numLinks());
 	}
 	
+//	@Test
+//	public void testRemove()
+//	{
+//		KGraphList graph = new KGraphList();
+//		
+//		KNode a = graph.add(),
+//              b = graph.add(),
+//              c = graph.add(),
+//              d = graph.add(),
+//              e = graph.add();
+//	
+//		b.connect(a);
+//		c.connect(a);
+//		d.connect(a);
+//		e.connect(a);
+//		
+//		System.out.println(graph.numLinks() + " " + graph.size());
+//		
+//		assertEquals(4, graph.numLinks());
+//		assertEquals(5, graph.size());
+//		
+//		a.remove();
+//		
+//		assertEquals(0, graph.numLinks());
+//		assertEquals(4, graph.size());
+//		
+//		for(int i : series(graph.size()))
+//			assertEquals(i, graph.get(i).index());
+//	}
+	
+//	@Test
+//	public void testRemove2()
+//	{
+//		KGraphList graph = new KGraphList();
+//		
+//		KNode a = graph.add(),
+//		      b = graph.add(),
+//		      c = graph.add(),
+//		      d = graph.add();
+//	
+//		a.connect(b);
+//		b.connect(c);
+//		c.connect(d);
+//		d.connect(a);
+//				
+//		b.remove();
+//		
+//		assertFalse(graph.get(0).connectedTo(graph.get(0)));
+//		assertFalse(graph.get(0).connectedTo(graph.get(1)));
+//		assertFalse(graph.get(0).connectedTo(graph.get(2)));
+//		assertFalse(graph.get(1).connectedTo(graph.get(0)));
+//		assertFalse(graph.get(1).connectedTo(graph.get(1)));
+//		assertTrue (graph.get(1).connectedTo(graph.get(2)));
+//		assertTrue (graph.get(2).connectedTo(graph.get(0)));
+//		assertFalse(graph.get(2).connectedTo(graph.get(1)));
+//		assertFalse(graph.get(2).connectedTo(graph.get(2)));
+//		
+//		System.out.println(graph);
+//	}
+	
 	@Test
-	public void testRemove()
+	public void testTripleFind()
 	{
-		KGraph graph = new KGraph();
+		List<Triple> triples = 
+				asList(
+					t(0, 0, 1),
+					t(0, 0, 2),
+					t(0, 1, 3),
+					t(1, 0, 3),
+					t(2, 0, 3),
+					t(3, 1, 4),
+					t(4, 1, 5),
+					t(4, 0, 5)
+				);
 		
-		KNode a = graph.add(),
-              b = graph.add(),
-              c = graph.add(),
-              d = graph.add(),
-              e = graph.add();
+		KGraph graph = new KGraph(triples);
+		
+		assertEquals(graph.find(null, null, null).size(), 8);
 	
-		b.connect(a);
-		c.connect(a);
-		d.connect(a);
-		e.connect(a);
+		assertEquals(graph.find(0, 0, 1).size(), 1);
+		assertEquals(graph.find(0, 1, 1).size(), 0);
+		assertEquals(graph.find(4, 1, 5).size(), 1);
+		assertEquals(graph.find(4, 0, 5).size(), 1);
 		
-		System.out.println(graph.numLinks() + " " + graph.size());
-		
-		assertEquals(4, graph.numLinks());
-		assertEquals(5, graph.size());
-		
-		a.remove();
-		
-		assertEquals(0, graph.numLinks());
-		assertEquals(4, graph.size());
-		
-		for(int i : series(graph.size()))
-			assertEquals(i, graph.get(i).index());
-	}
+		assertEquals(graph.find(null, 0, 0).size(), 0);
+		assertEquals(graph.find(null, 0, 1).size(), 1);
+		assertEquals(graph.find(null, 0, 3).size(), 2);
+
+		assertEquals(graph.find(0, null, 4).size(), 0);
+		assertEquals(graph.find(0, null, 1).size(), 1);
+		assertEquals(graph.find(4, null, 5).size(), 2);
 	
-	@Test
-	public void testRemove2()
-	{
-		KGraph graph = new KGraph();
+		assertEquals(graph.find(3, 0, null).size(), 0);
+		assertEquals(graph.find(3, 1, null).size(), 1);
+		assertEquals(graph.find(0, 0, null).size(), 2);
 		
-		KNode a = graph.add(),
-		      b = graph.add(),
-		      c = graph.add(),
-		      d = graph.add();
-	
-		a.connect(b);
-		b.connect(c);
-		c.connect(d);
-		d.connect(a);
-				
-		b.remove();
-		
-		assertFalse(graph.get(0).connectedTo(graph.get(0)));
-		assertFalse(graph.get(0).connectedTo(graph.get(1)));
-		assertFalse(graph.get(0).connectedTo(graph.get(2)));
-		assertFalse(graph.get(1).connectedTo(graph.get(0)));
-		assertFalse(graph.get(1).connectedTo(graph.get(1)));
-		assertTrue (graph.get(1).connectedTo(graph.get(2)));
-		assertTrue (graph.get(2).connectedTo(graph.get(0)));
-		assertFalse(graph.get(2).connectedTo(graph.get(1)));
-		assertFalse(graph.get(2).connectedTo(graph.get(2)));
-		
-		System.out.println(graph);
+		assertEquals(graph.find(3, null, null).size(), 1);
+		assertEquals(graph.find(null, 0, null).size(), 5);
+		assertEquals(graph.find(null, 1, null).size(), 3);
+		assertEquals(graph.find(null, 2, null).size(), 0);
+		assertEquals(graph.find(0, null, null).size(), 3);
 	}
 	
 	@Test
 	public void testConnected()
 	{
-		KGraph graph = new KGraph();
+		List<Triple> triples = 
+				asList(
+					t(0, 0, 1),
+					t(0, 0, 2)
+				);
 		
-		KNode a = graph.add(),
-		      b = graph.add(),
-		      c = graph.add();
+		KGraph graph = new KGraph(triples);
 	
-		a.connect(b);
-		a.connect(c);
+		KNode a = graph.get(0), 
+		      b = graph.get(1),
+		      c = graph.get(2);
 		
 		assertTrue(a.connected(b));
 		assertTrue(a.connectedTo(b));
@@ -187,75 +235,99 @@ public class KGraphTest
 	@Test
 	public void testLinks()
 	{
-		KGraph graph = new KGraph();
+		List<Triple> triples = 
+				asList(
+					t(0, 0, 1),
+					t(0, 0, 2),
+					t(0, 0, 2)
+				);
 		
-		KNode a = graph.add(),
-		      b = graph.add(),
-		      c = graph.add();
+		KGraph graph = new KGraph(triples);
 	
-		a.connect(b);
-		
-		a.connect(c);
-		a.connect(c);
-		
+		KNode a = graph.get(0), 
+		      b = graph.get(1),
+		      c = graph.get(2);
+				
 		assertEquals(0, a.links(a).size());
 		assertEquals(1, a.links(b).size());
 		assertEquals(1, b.links(a).size());
-		assertEquals(2, a.links(c).size());
-		assertEquals(2, c.links(a).size());
+		
+		// * Note that the mechanics differ from the adjecency list implementation here
+		assertEquals(1, a.links(c).size());
+		assertEquals(1, c.links(a).size());
 	}	
 	
-	@Test
-	public void testLinkRemove()
-	{
-		KGraph graph = new KGraph();
-		
-		KNode a = graph.add(),
-		      b = graph.add(),
-		      c = graph.add();
-		
-		a.connect(b);
-		
-		a.connect(c);
-		a.connect(c);
-		
-		KLink link = a.links(c).iterator().next();
-		link.remove();
-		
-		assertEquals(2, graph.numLinks());
-		assertEquals(1, a.links(c).size());
-		assertTrue(link.dead());
-
-		int n = 0;
-		for(KLink l : graph.links())
-			n++;
-		assertEquals(2, n);
-	}	
+//	@Test
+//	public void testLinkRemove()
+//	{
+//		KGraphList graph = new KGraphList();
+//		
+//		KNode a = graph.add(),
+//		      b = graph.add(),
+//		      c = graph.add();
+//		
+//		a.connect(b);
+//		
+//		a.connect(c);
+//		a.connect(c);
+//		
+//		KLink link = a.links(c).iterator().next();
+//		link.remove();
+//		
+//		assertEquals(2, graph.numLinks());
+//		assertEquals(1, a.links(c).size());
+//		assertTrue(link.dead());
+//
+//		int n = 0;
+//		for(KLink l : graph.links())
+//			n++;
+//		assertEquals(2, n);
+//	}	
 	
 	@Test
 	public void testEquals()
 	{
-		KGraph g1 = new KGraph();
-		g1.add();
-		g1.add();
-		g1.add();
+		List<Triple> triples = 
+				asList(
+					t(0, 0, 1),
+					t(1, 0, 2)
+				);
 		
-		g1.node(0).connect(g1.node(1));
-		g1.node(1).connect(g1.node(2));
-		
-		KGraph g2 = new KGraph();
-		g2.add();
-		g2.add();
-		g2.add();
-		 
-		g2.node(0).connect(g2.node(1));                    
-		g2.node(1).connect(g2.node(2));		
+		KGraph g1 = new KGraph(triples);
+		reverse(triples);
+		KGraph g2 = new KGraph(triples);	
          
 		assertTrue(g1.equals(g2));
+			
 		
-		g2.node(0).connect(g2.node(2));
-	
-		assertFalse(g1.equals(g2));
+		triples = 
+				asList(
+					t(0, 0, 1),
+					t(1, 1, 2)
+				);
+		
+		KGraph g3 = new KGraph(triples);
+		
+		assertFalse(g1.equals(g3));
+		assertFalse(g2.equals(g3));
+		assertFalse(g3.equals(g1));
+		assertFalse(g3.equals(g2));
+		
+		triples = 
+				asList(
+					t(0, 0, 1),
+					t(1, 0, 2),
+					t(0, 0, 2)
+				);
+		
+		KGraph g4 = new KGraph(triples);
+		
+		assertFalse(g1.equals(g4));
+		assertFalse(g2.equals(g4));
+		assertFalse(g3.equals(g4));
+		assertFalse(g4.equals(g1));
+		assertFalse(g4.equals(g2));
+		assertFalse(g4.equals(g3));
 	}
 	
 	@Test
@@ -263,7 +335,7 @@ public class KGraphTest
 	{
 		DGraph<String> g1 = new LightDGraph<String>();
 		
-		KGraph g2 = new KGraph();
+		KGraph g2 = new KGraph(Collections.emptyList());
 		
 		assertFalse(g1.equals(g2));
 		assertFalse(g2.equals(g1));	
@@ -303,7 +375,7 @@ public class KGraphTest
 	public void testImportBig()
 			throws IOException
 	{
-		KGraph graph = KGraph.loadHDT(new File("/Users/Peter/Dropbox/Datasets/RDF/dbpedia/mappingbased-dbpedia.en.2015-10.hdt"));
+		KGraphList graph = KGraphList.loadHDT(new File("/Users/Peter/Dropbox/Datasets/RDF/dbpedia/mappingbased-dbpedia.en.2015-10.hdt"));
 		
 		System.out.println(graph.size());
 		System.out.println(graph.numLinks());
@@ -313,37 +385,31 @@ public class KGraphTest
 	@Test
 	public void testCopy()
 	{
-		KGraph graph = new KGraph();
-		    
-		KNode a = graph.add();
-		KNode b = graph.add();
-		KNode c = graph.add();
-
-		a.connect(a);
-		b.connect(c);
-		c.connect(a);
-		a.connect(c);
-		a.connect(c);
 		
+		List<Triple> triples = 
+				asList(
+					t(0, 0, 0),
+					t(1, 0, 2),
+					t(0, 0, 2),
+					t(2, 0, 0)
+				);
+		
+		
+		KGraph graph = new KGraph(triples);
+		    
+		KNode a = graph.get(0),
+		      b = graph.get(1),
+		      c = graph.get(2);
+		      
 		{
 			int numLinks = 0;
 			for(KLink link : graph.links())
 				numLinks++;
 	
-			assertEquals(5, numLinks);
+			assertEquals(4, numLinks);
 			assertEquals(graph.numLinks(), numLinks);
 		}
 
-//		KGraph graph = KGraph.copy(graph);
-//
-//		{
-//			int numLinks = 0;
-//			for(Link<String> link : graph.links())
-//				numLinks++;
-//	
-//			assertEquals(5, numLinks);
-//			assertEquals(graph.numLinks(), numLinks);
-//		}
 	}
 	
 	// @Test I'll write it when I need it.
@@ -371,79 +437,57 @@ public class KGraphTest
 		}
 	}		
 	
-	@Test
-	public void testNumLinks2()
-	{
-		KGraph graph = new KGraph();
-		
-		KNode a = graph.add();
-		KNode b = graph.add();
-		KNode c = graph.add();
-
-		a.connect(a);
-		b.connect(c);
-		c.connect(a);
-		a.connect(c);
-		a.connect(c);
-		
-		int numLinks = 0;
-		for(KLink link : graph.links())
-			numLinks++;
-		
-		assertEquals(5, numLinks);
-		assertEquals(graph.numLinks(), numLinks);
-	}
 	
-	/**
-	 * 
-	 */
-	@Test
-	public void testIndices2()
-	{		
-		KGraph graph = Datasets.dogfood();
-
-		for(int x : series(50))
-		{
-			// Note that light graphs have non-persistent nodes, so node.index() 
-			// doesn't update after removal  
-			
-			KNode node = graph.get(145);
-			assertEquals(145, node.index());
-			
-			graph.get(150).remove(); // edit causes an exception
-			
-			boolean exThrown = false;
-			try {
-				System.out.println(node.index());
-			} catch(Exception e)
-			{
-				exThrown = true;
-			}
-	
-			assertTrue(exThrown);
-			
-			// * Do some random removals
-			for(int i : Series.series(10))
-			{
-				// - remove a random node
-				graph.get(Global.random().nextInt(graph.size())).remove();
-				
-				// - remove a random link
-				KNode a = graph.get(Global.random().nextInt(graph.size()));
-				
-				if(! a.neighbors().isEmpty())
-				{
-					KNode b = Functions.choose(a.neighbors());
-					KLink link = Functions.choose(a.links(b));
-					link.remove();
-				}
-			}
-			
-			int i = 0;
-			for(KNode n : graph.nodes())
-				assertEquals(i++, n.index());
-		}
-	}
+//	/**
+//	 * 
+//	 */
+//	@Test
+//	public void testIndices2()
+//	{		
+//		KGraph graph = Datasets.dogfood();
+//
+//		for(int x : series(50))
+//		{
+//			// Note that light graphs have non-persistent nodes, so node.index() 
+//			// doesn't update after removal  
+//			
+//			KNode node = graph.get(145);
+//			assertEquals(145, node.index());
+//			
+//			graph.get(150).remove(); // edit causes an exception
+//			
+//			boolean exThrown = false;
+//			try {
+//				System.out.println(node.index());
+//			} catch(Exception e)
+//			{
+//				exThrown = true;
+//			}
+//	
+//			assertTrue(exThrown);
+//			
+//			// * Do some random removals
+//			for(int i : Series.series(10))
+//			{
+//				// - remove a random node
+//				graph.get(Global.random().nextInt(graph.size())).remove();
+//				
+//				// - remove a random link
+//				KNode a = graph.get(Global.random().nextInt(graph.size()));
+//				
+//				if(! a.neighbors().isEmpty())
+//				{
+//					KNode b = Functions.choose(a.neighbors());
+//					KLink link = Functions.choose(a.links(b));
+//					link.remove();
+//				}
+//			}
+//			
+//			int i = 0;
+//			for(KNode n : graph.nodes())
+//				assertEquals(i++, n.index());
+//		}
+//	}
 	
 	@Test
 	public void testNodeLinks()
@@ -462,17 +506,22 @@ public class KGraphTest
 	@Test
 	public void testNodeLinks2()
 	{
-		KGraph graph = new KGraph();
 		
-		KNode a = graph.add();
-		KNode b = graph.add();
-		KNode c = graph.add();
+		List<Triple> triples = 
+				asList(
+					t(0, 0, 0),
+					t(1, 0, 2),
+					t(2, 0, 0),
+					t(0, 0, 2)
+				);
+		
+		KGraph graph = new KGraph(triples);
 
-		a.connect(a);
-		b.connect(c);
-		c.connect(a);
-		a.connect(c);
-		a.connect(c);
+//		a.connect(a);
+//		b.connect(c);
+//		c.connect(a);
+//		a.connect(c);
+//		a.connect(c);
 		
 		{
 			KNode node = graph.get(0);
@@ -481,7 +530,7 @@ public class KGraphTest
 			
 			assertEquals(1, node.links(graph.get(0)).size());
 			assertEquals(0, node.links(graph.get(1)).size());			
-			assertEquals(3, node.links(graph.get(2)).size());
+			assertEquals(2, node.links(graph.get(2)).size());
 		}
 		
 		{
@@ -499,7 +548,7 @@ public class KGraphTest
 			Collection<KNode> nbs = node.neighbors();
 			assertEquals(2, nbs.size());
 			
-			assertEquals(3, node.links(graph.get(0)).size());
+			assertEquals(2, node.links(graph.get(0)).size());
 			assertEquals(1, node.links(graph.get(1)).size());			
 			assertEquals(0, node.links(graph.get(2)).size());
 		}
@@ -508,17 +557,19 @@ public class KGraphTest
 	@Test
 	public void testNeighbors()
 	{
-		KGraph graph = new KGraph();
+		List<Triple> triples = 
+				asList(
+					t(0, 0, 0),
+					t(1, 0, 2),
+					t(2, 0, 0),
+					t(0, 0, 2)
+				);
 		
-		KNode a = graph.add();
-		KNode b = graph.add();
-		KNode c = graph.add();
-
-		a.connect(a);
-		b.connect(c);
-		c.connect(a);
-		a.connect(c);
-		a.connect(c);
+		KGraph graph = new KGraph(triples);
+		
+		KNode a = graph.get(0),
+		      b = graph.get(1),
+		      c = graph.get(2);
 		
 		Set<KNode> aNbsExpected = new HashSet<KNode>(Arrays.asList(a, c));
 		Set<KNode> bNbsExpected = new HashSet<KNode>(Arrays.asList(c));
@@ -533,63 +584,63 @@ public class KGraphTest
 		assertEquals(cNbsExpected, cNbsActual);
 	}
 	
-	@Test
-	public void testNeighborsFast()
-	{
-		KGraph graph = Datasets.dogfood();
+//	@Test
+//	public void testNeighborsFast()
+//	{
+//		KGraphList graph = Datasets.dogfood();
+//	
+//		assertTrue(graph instanceof FastWalkable);
+//		
+//		for(KNode node : graph.nodes())
+//		{
+//			Collection<KNode> nbs = node.neighbors();
+//			
+//			Collection<KNode> col = graph.neighborsFast(node);
+//			Set<KNode> nbsFast = new HashSet<KNode>(col);
+//			
+//			assertTrue(col instanceof List<?>);
+//			
+//			List<Integer> nbsList = new ArrayList<Integer>();
+//			for(KNode nod : nbs)
+//				nbsList.add(nod.index());
+//			
+//			List<Integer> nbsFastList = new ArrayList<Integer>();
+//			for(KNode nod : nbsFast)
+//				nbsFastList.add(nod.index());
+//			
+//			Collections.sort(nbsList);
+//			Collections.sort(nbsFastList);
+//			
+//			assertEquals(nbsList, nbsFastList);			
+//		}
+//	}
 	
-		assertTrue(graph instanceof FastWalkable);
-		
-		for(KNode node : graph.nodes())
-		{
-			Collection<KNode> nbs = node.neighbors();
-			
-			Collection<KNode> col = graph.neighborsFast(node);
-			Set<KNode> nbsFast = new HashSet<KNode>(col);
-			
-			assertTrue(col instanceof List<?>);
-			
-			List<Integer> nbsList = new ArrayList<Integer>();
-			for(KNode nod : nbs)
-				nbsList.add(nod.index());
-			
-			List<Integer> nbsFastList = new ArrayList<Integer>();
-			for(KNode nod : nbsFast)
-				nbsFastList.add(nod.index());
-			
-			Collections.sort(nbsList);
-			Collections.sort(nbsFastList);
-			
-			assertEquals(nbsList, nbsFastList);			
-		}
-	}
-	
-	@Test
-	public void testSort()
-	{
-		KGraph data = Datasets.test();
+//	@Test
+//	public void testSort()
+//	{
+//		KGraph data = Datasets.test();
+//
+//		data.sort();
+//		
+//		for(KNode node : data.nodes())
+//		{
+//			
+//			assertTrue(sorted(data.neighborsFastIn(node)));
+//			
+//			assertTrue(sorted(data.neighborsFastOut(node)));
+//
+//		}
+//	}
 
-		data.sort();
-		
-		for(KNode node : data.nodes())
-		{
-			
-			assertTrue(sorted(data.neighborsFastIn(node)));
-			
-			assertTrue(sorted(data.neighborsFastOut(node)));
-
-		}
-	}
-
-	public static boolean sorted(List<KNode> list)
-	{
-		if(list.isEmpty())
-			return true;
-		
-		for(int i : series(list.size() - 1))
-			if(list.get(i).index() > list.get(i+1).index())
-				return false;
-		
-		return true;
-	}
+//	public static boolean sorted(List<KNode> list)
+//	{
+//		if(list.isEmpty())
+//			return true;
+//		
+//		for(int i : series(list.size() - 1))
+//			if(list.get(i).index() > list.get(i+1).index())
+//				return false;
+//		
+//		return true;
+//	}
 }

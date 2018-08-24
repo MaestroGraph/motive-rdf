@@ -5,6 +5,7 @@ import static java.lang.Math.min;
 import static java.util.Arrays.asList;
 import static java.util.Collections.sort;
 import static nl.peterbloem.kit.Functions.sampleInts;
+import static nl.peterbloem.kit.Functions.tic;
 import static nl.peterbloem.kit.Global.random;
 import static nl.peterbloem.kit.Pair.p;
 import static nl.peterbloem.kit.Series.series;
@@ -41,6 +42,7 @@ import nl.peterbloem.kit.Global;
 import nl.peterbloem.kit.Order;
 import nl.peterbloem.kit.Pair;
 import nl.peterbloem.kit.Series;
+import nl.peterbloem.motive.rdf.KGraphList.KNode;
 
 public class Sampler
 {
@@ -48,7 +50,7 @@ public class Sampler
 	private int pruneEvery = 500000;
 	private static final int PRUNE_BELOW_FREQ = 2;
 	
-	private KGraph data;
+	private KGraphList data;
 	private int samples;
 
 	private List<DTGraph<Integer, Integer>> tokens;
@@ -63,22 +65,24 @@ public class Sampler
 	
 	private FrequencyModel<DTGraph<Integer, Integer>> fm;
 	
-	private int maxVar = Integer.MAX_VALUE;
+	private int maxVarNodes;
+	private int maxVarTags;
 
 	
 	public Sampler(
-			KGraph data,
+			KGraphList data,
 			int numSamples, int pruneEvery,
 			int minSize, int maxSize,
-			int maxVar)
+			int maxVarNodes, int maxVarTags)
 	{	
 		this.data = data;
 		
 		this.samples = numSamples;
 		this.pruneEvery = pruneEvery;
 		
-		this.maxVar = maxVar;
-		
+		this.maxVarNodes = maxVarNodes;
+		this.maxVarTags = maxVarTags;
+
 		intGen = Generators.uniform(minSize, maxSize + 1);
 		
 		run();
@@ -112,7 +116,7 @@ public class Sampler
 			while(it.hasNext())
 			{
 				List<Integer> instance = it.next();
-				List<Triple> triples = triples(sub, instance);
+				List<Triple> triples = Utils.triples(sub, instance);
 				if(containsAny(seen, triples))
 					it.remove();
 				else
@@ -139,7 +143,7 @@ public class Sampler
 			
 			List<Integer> values = new ArrayList<Integer>();
 			int size = intGen.generate();
-			DTGraph<Integer, Integer> sub = sample(data, size, values, maxVar);
+			DTGraph<Integer, Integer> sub = sample(data, size, values, maxVarNodes, maxVarTags);
 						
 			// * record the occurrence
 			if (!sample.containsKey(sub))
@@ -152,6 +156,10 @@ public class Sampler
 				System.out.print('!');
 				prune();
 			}
+			
+//			System.out.print(':');
+//			if(Global.random().nextDouble() < 0.01)
+//				System.out.println("\n"+sample.size());
 		}
 		
 		prune();
@@ -198,39 +206,11 @@ public class Sampler
 	{	
 		List<Triple> triples = new ArrayList<Triple>();
 		for(int i : series(values.size()))
-			triples.addAll(Sampler.triples(pattern, values.get(i)));
+			triples.addAll(Utils.triples(pattern, values.get(i)));
 		
 		return triples;
 	}
 	
-	/**
-	 * Generates instantiated triples of a pattern 
-	 */
-	public static List<Triple> triples(DTGraph<Integer, Integer> pattern, List<Integer> values)
-	{	
-		List<Triple> result = new ArrayList<>((int)pattern.numLinks());
-		
-		int numVarLabels = Utils.numVarLabels(pattern);
-				
-		for(DTLink<Integer, Integer> link : pattern.links())
-		{
-			int subject = link.from().label();
-			int object = link.to().label();
-			int predicate = link.tag();
-			
-			if(subject < 0)
-				subject = values.get(-subject - 1);
-			if(object < 0)
-				object = values.get(-object - 1);
-			if(predicate < 0)
-				predicate = values.get(numVarLabels  - predicate - 1);
-			 			
-			result.add(new Triple(subject, predicate, object));
-		}
-		
-		return result;
-	}
-
 	/**
 	 * Samples a single pattern out of a graph with a single match
 	 * 
@@ -239,51 +219,22 @@ public class Sampler
 	 * @param values The instantiations of the variable nodes/links
 	 * @return
 	 */
-	public static DTGraph<Integer, Integer> sample(KGraph data, int size, List<Integer> values, int maxVar)
+	public static DTGraph<Integer, Integer> sample(KGraphList data, int size, List<Integer> values, int maxNodesToVar, int maxTagsToVar)
 	{
 		SimpleSubgraphGenerator gen = new SimpleSubgraphGenerator(data, size);
 		
 		for(int attempt : Series.series(MAX_TRIES))
 		{
+			values.clear();
     		List<Integer> indices = gen.generate();
     		
     		// * Extract induced subgraph
     		DTGraph<Integer, Integer> sub = Subgraph.dtSubgraphIndices(data, indices);
-    		 
-    		boolean printPattern = false;
-    		if(sub.size() == 4 && sub.numLinks() == 3)
-    		{
-    			printPattern = true;
-    			
-    			List<Integer> tags = new ArrayList(sub.tags());
-    			
-    			Set<Integer> froms = new HashSet<>();
-    			Set<Integer> tos = new HashSet<>();
-    			
-    			for(DTLink<Integer, Integer> link : sub.links())
-    			{
-    				froms.add(link.from().label());
-    				tos.add(link.to().label());
-    			}
-    			
-    			List<Integer> fl = new ArrayList<>(froms);
-    			List<Integer> tl = new ArrayList<>(tos);
-    			
-    			sort(tags);
-    			sort(fl);
-    			sort(tl);
-    			
-    			if(
-    					tags.equals(asList(0, 1, 2)) && 
-    					fl.size() == 1 && 
-    					(tl.equals(asList(0,1)) || tl.equals(asList(0)) || tl.equals(asList(1))) 
-    				)
-    				printPattern = true;
-    		}
+    		
+    		System.out.println(sub);
     		
     		// * remove some links
     		int linksToRemove = Global.random().nextInt(max((int)sub.numLinks() - sub.size(), 1));
-    		List<DTLink<Integer, Integer>> toRemove = new ArrayList<>(linksToRemove);
     		List<DTLink<Integer, Integer>> links = new ArrayList<>((int)sub.numLinks());
     		
     		for(DTLink<Integer, Integer> link : sub.links())
@@ -296,92 +247,75 @@ public class Sampler
     			continue;
     		
     		// * make some links/nodes variable
-    		int nextTag = -1, nextLabel = -1;
     		
-    		int totalVar = random().nextInt(min((int)sub.numLinks() + sub.size(), maxVar));
-    		int linksToVar = random().nextInt(totalVar + 1);
-    		int nodesToVar = totalVar - linksToVar;
+    		int linksToVar = random().nextInt(maxTagsToVar+1);
+    		int nodesToVar = random().nextInt(maxNodesToVar+1);
     		
-    		
-    		linksToVar = min(linksToVar, (int)sub.numLinks());
+    		linksToVar = min(linksToVar, sub.tags().size());
     		nodesToVar = min(nodesToVar, sub.size());
+    		   		
+    		Map<Integer, Integer> nodeMap = new LinkedHashMap<>();
+    		Map<Integer, Integer> tagMap = new LinkedHashMap<>();
     		
-    		Set<Integer> linksToChange = new HashSet<>(Functions.sampleInts(linksToVar, (int)sub.numLinks()));
-    		Set<Integer> nodesToChange = new HashSet<>(Functions.sampleInts(nodesToVar, sub.size()));
-
+    		int nextTag = -1, nextLabel = -1;
+    		for(int tag : Functions.subset(sub.tags(), linksToVar))
+    			tagMap.put(tag, nextTag--);
+    		for(DTNode<Integer, Integer> node : Functions.subset(sub.nodes(), nodesToVar))
+    			nodeMap.put(node.label(), nextLabel--);
+    			
     		DTGraph<Integer, Integer> pattern = new MapDTGraph<>();
     				
     		for(DTNode<Integer, Integer> node : sub.nodes())
     		{
     			int label;
     			
-    			if(nodesToChange.contains(node.index()))
-    			{
-    				label = nextLabel --;
+    			if(nodeMap.containsKey(node.label()))
+    			{    				
     				values.add(node.label());
+    				label = nodeMap.get(node.label());
     			} else
     				label = node.label();
     			
     			pattern.add(label);
     		}
     		
-    		int i = 0;
     		for(DTLink<Integer, Integer> link : sub.links())
     		{
-    			int tag;
+    			int tag = link.tag();
     			
-    			if(linksToChange.contains(i))
-    			{
-    				tag = nextTag -- ;
-    				values.add(link.tag());
+    			if(tagMap.containsKey(tag))
+    			{    				
+    				values.add(tag);
+    				tag = tagMap.get(tag);
     			} else 
     				tag = link.tag();
     			
     			pattern.get(link.from().index()).connect(pattern.get(link.to().index()), tag);
-    			i++;
+
     		}
+    	
+    		System.out.println(pattern);
+    		System.out.println(values);
     		
-    		boolean print = false; //new HashSet<>(sub.labels()).contains(46900) && pattern.numLinks() == 2 && pattern.size() == 3;
-    		if(print)
-			{
-        		System.out.println(nodesToChange);
-        		System.out.println(linksToChange);
-        		System.out.println(sub);
-        		System.out.println(pattern);
-        		System.out.println(values);
-        		
-        		System.out.println(triples(pattern, values));
-			}
-        		    		
-    		// * Reorder nodes to canonical ordering;
+    		// * randomly partition recurring variables
+    		pattern = Utils.partition(pattern, values);
+			
+    		System.out.println(pattern);    		
+    		System.out.println(values);
+    		
+    		System.out.println();
+    		
+    		// * Reject the sample if it's not connected
+    		if(! Graphs.connected(pattern))
+    			continue;
+
     		pattern = Nauty.canonical(pattern, values);
+
+    		System.out.println("c " +  pattern);    		
+    		System.out.println("  " +  values);
     		
-    		
-    		if(printPattern)
-    		{
-    			System.out.println();
-    			System.out.println(sub);
-    			System.out.println(pattern);
-    		}
-    		{
-    			DTGraph<Integer, Integer> t = new MapDTGraph<>();
-    			DTNode<Integer, Integer> n1 = t.add(-1);
-    			n1.connect(t.add(-2), 0);
-    			n1.connect(t.add(-3), 1);
-    			n1.connect(t.add(-4), 2);
-    			
-    			t = Nauty.canonical(t);
-    			
-    			if(pattern.equals(t))
-    				System.out.println("&");
-    		}
-    		
-    		if(print)
-			{
-    			System.out.println(pattern);
-        		System.out.println(values);
-        		System.out.println(triples(pattern, values));
-			}
+    		System.out.println();
+
     		return pattern;
 		}
 		

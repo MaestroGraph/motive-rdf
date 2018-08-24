@@ -1,16 +1,11 @@
 package nl.peterbloem.motive.rdf;
 
-import static java.lang.Math.max;
-import static java.util.Collections.emptySet;
 import static java.util.Collections.reverseOrder;
-import static java.util.Collections.singleton;
 import static java.util.Collections.unmodifiableSet;
 import static nl.peterbloem.kit.Functions.concat;
 import static nl.peterbloem.kit.Functions.dot;
-import static nl.peterbloem.kit.Pair.p;
 import static nl.peterbloem.kit.Series.series;
 import static nl.peterbloem.motive.rdf.Pref.shorten;
-import static nl.peterbloem.motive.rdf.Triple.t;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -87,142 +82,56 @@ import nl.peterbloem.kit.Series;
  * @author Peter
  *
  */
-public class KGraph implements 
-		DTGraph<Integer, Integer>
+public class KGraphList implements 
+		DTGraph<Integer, Integer>, 
+		FastWalkable<Integer, KGraphList.KNode>
 {
-	// The graph is stored as seven indices. 
-	// * no variables
-	private Set<Triple> triples = new LinkedHashSet<>();
-	
-	// * two variables. sIndex maps an s integer to all triples with s at the s position
-	private Map<Integer, Set<Triple>> sIndex = new LinkedHashMap<>();
-	private Map<Integer, Set<Triple>> pIndex = new LinkedHashMap<>();
-	private Map<Integer, Set<Triple>> oIndex = new LinkedHashMap<>();		
-	
-	// * one variable
-	private Map<Pair<Integer, Integer>, Set<Triple>> spIndex = new LinkedHashMap<>();
-	private Map<Pair<Integer, Integer>, Set<Triple>> soIndex = new LinkedHashMap<>();
-	private Map<Pair<Integer, Integer>, Set<Triple>> poIndex = new LinkedHashMap<>();
-	
-	private int maxNode = -1;
-	private int maxTag = -1;
+	// * the initial capacity reserved for neighbors
+	public static final int NEIGHBOR_CAPACITY = 5;
 
+	private List<List<Integer>> in;	
+	private List<List<Integer>> out;
+
+	private List<List<Integer>> inTags;
+	private List<List<Integer>> outTags;
+
+	private long numLinks = 0;
 	private long modCount = 0;	
 	
 	// * changes for any edit which causes the node indices to change 
 	//   (currently just removal). If this happens, all existing Node and Link 
 	//   objects lose persistence 
-	//   (currently not used, because modificiations aren't implemented yet)
 	private long nodeModCount = 0;
 
 	private int hash;
 	private Long hashMod = null;
-	
-	/**
-	 * 
-	 * @param trips
-	 */
-	public KGraph(Collection<Triple> triplesIn)
-	{
-		for(Triple triple : triplesIn)
-		{
-			int s = triple.subject(), p = triple.predicate(), o = triple.object();
-			
-			triples.add(triple);
-			
-			put(sIndex, s, triple);			
-			put(pIndex, p, triple);
-			put(oIndex, o, triple);
 
-			put(spIndex, p(s, p), triple);			
-			put(soIndex, p(s, o), triple);
-			put(poIndex, p(p, o), triple);
-			
-			maxTag  = max(maxTag, p);
-			maxNode = max(maxNode, max(s, o));
-		}
+	private boolean sorted = false;
+	
+	private int maxTag = -1;
+	
+	public KGraphList()
+	{
+		this(16);
 	}
 	
-	/**
-	 * Find all matches of the given triple pattern. null arguments are taken as variables
-	 * @param subject
-	 * @param predicate
-	 * @param object
-	 * @return
-	 */
-	public Set<Triple> find(Integer subject, Integer predicate, Integer object)
+	public KGraphList(int capacity)
 	{
-		if(subject == null)
-		{
-			if(predicate == null)
-			{
-				if(object == null)
-					return unmodifiableSet(triples);
-				else
-					return unmodifiableSet(get(oIndex, object));
-			} else 
-			{
-				if(object == null)
-					return unmodifiableSet(get(pIndex, predicate));				
-				else
-					return unmodifiableSet(get(poIndex, p(predicate, object)));				
-			}
-		} else
-		{
-			if(predicate == null)
-			{
-				if(object == null)
-					return unmodifiableSet(get(sIndex, subject));
-				else
-					return unmodifiableSet(get(soIndex, p(subject, object)));
-			} else 
-			{
-				if(object == null)
-					return unmodifiableSet(get(spIndex, p(subject, predicate)));				
-				else
-				{
-					Triple t = t(subject, predicate, object);
-					return triples.contains(t) ? singleton(t) : emptySet();
-				}
-			}
-		}
-	}
-	
-	private int numNull(Object... objects)
-	{
-		int res = 0;
-		for(Object obj : objects)
-			if(obj == null)
-				res++;
-		
-		return res;
-	}
-	
-	private <T> void put(Map<T, Set<Triple>> index, T key, Triple triple)
-	{
-		if(!index.containsKey(key))
-			index.put(key, new LinkedHashSet<>());
-		
-		index.get(key).add(triple);
-	}
-	
-	private <T> Set<Triple> get(Map<T, Set<Triple>> index, T key)
-	{
-		if(!index.containsKey(key))
-			return Collections.emptySet();
-		
-		return index.get(key);
-	}
+		in = new ArrayList<List<Integer>>(capacity); 
+		out = new ArrayList<List<Integer>>(capacity);
 
+		inTags = new ArrayList<List<Integer>>(capacity); 
+		outTags = new ArrayList<List<Integer>>(capacity); 
+	}
 
 	public int size()
 	{
-		return maxNode + 1;
+		return in.size();
 	}
 
 	public long numLinks()
 	{
-		return triples.size();
+		return numLinks;
 	}
 
 	public Set<Integer> tags()
@@ -253,25 +162,13 @@ public class KGraph implements
 		return node(i);
 	}
 
-	public Collection<KLink> links()
+	public Iterable<KLink> links()
 	{
-		return new LinkCollection(triples);		
-	}
-	
-	public Collection<KLink> links(Collection<Triple> trips)
-	{
-		return new LinkCollection(trips);		
+		return new LinkCollection();		
 	}
 	
 	private class LinkCollection extends AbstractCollection<KLink>
 	{
-		Collection<Triple> trips;
-		
-		public LinkCollection(Collection<Triple> trips)
-		{
-			this.trips = trips;
-		}
-		
 		@Override
 		public Iterator<KLink> iterator()
 		{
@@ -281,23 +178,45 @@ public class KGraph implements
 		@Override
 		public int size()
 		{
-			return trips.size();
+			return (int) numLinks;
 		}
 
 		private class LLIterator implements Iterator<KLink>
 		{
-			Iterator<Triple> master = trips.iterator();
+			private static final int BUFFER_LIMIT = 5;
+			private long graphState = state();
+			
+			// *Buffer contains pair of integers representing 
+			private Deque<KLink> buffer = new LinkedList<KLink>();
+			
+			// * Next node 
+			int next = 0;
+
+			private void check()
+			{
+				if(graphState != state())
+					throw new ConcurrentModificationException("Graph has been modified.");
+			}
 
 			@Override
 			public boolean hasNext()
 			{
-				return master.hasNext();
+				check();
+				read();
+
+				return ! buffer.isEmpty();
 			}
 
 			@Override
 			public KLink next()
 			{
-				return new KLink(master.next());
+				check();
+				read();
+
+				if(buffer.isEmpty())
+					throw new NoSuchElementException();
+
+				return buffer.pop();
 			}
 
 			@Override
@@ -306,6 +225,24 @@ public class KGraph implements
 				throw new UnsupportedOperationException("Method not supported");
 			}
 
+			private void read()
+			{
+				if(next >= KGraphList.this.size())
+					return;
+
+				while(buffer.size() < BUFFER_LIMIT && next < KGraphList.this.size())
+				{
+					int from = next;
+
+					List<Integer> neighbors = out.get(from);
+					List<Integer> tags      = outTags.get(from);
+					
+					for (int i : series(neighbors.size()))
+						buffer.add(new KLink(from, neighbors.get(i), tags.get(i)));
+
+					next++;
+				}			
+			}
 		}	
 	}
 
@@ -315,24 +252,25 @@ public class KGraph implements
 	 */
 	public KNode add()
 	{
-		throw new UnsupportedOperationException("Graph modification is not supported.");
-
-//		return add(size());
+		return add(size());
 	}
 	
 	/**
 	 * This method is only present for 
 	 */
 	public KNode add(Integer label)
-	{			
-		throw new UnsupportedOperationException("Graph modification is not supported.");
-//
-//		if(label != size())
-//			throw new IllegalArgumentException("Can only add node with the next available integer as a label (ie. size()). Consider using add() instead.");
-//
-//		maxNode ++;
-//
-//		return new KNode(size() - 1);
+	{
+		if(label != size())
+			throw new IllegalArgumentException("Can only add node with the next available integer as a label (ie. size()). Consider using add() instead.");
+		
+		in.add(new ArrayList<Integer>(NEIGHBOR_CAPACITY));
+		out.add(new ArrayList<Integer>(NEIGHBOR_CAPACITY));
+
+		inTags.add(new ArrayList<Integer>(NEIGHBOR_CAPACITY));
+		outTags.add(new ArrayList<Integer>(NEIGHBOR_CAPACITY));
+
+		sorted = false;
+		return new KNode(in.size() - 1);
 	}
 
 	public Set<Integer> labels()
@@ -342,12 +280,14 @@ public class KGraph implements
 
 	public boolean connected(Integer from, Integer to)
 	{
-		return ! pIndex.get(p(from, to)).isEmpty();
+		// TODO Auto-generated method stub
+		return false;
 	}
 
 	public long state()
 	{
-		return 0; // TODO
+		// TODO Auto-generated method stub
+		return 0;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -363,7 +303,7 @@ public class KGraph implements
 	public class KNode implements DTNode<Integer, Integer>
 	{
 		private Integer index;
-		// The modCount of the graph for which this node object is safe to use
+		// The modCount of the graph for which this node is safe to use
 		private final long nodeModState = nodeModCount;
 		private boolean dead = false;
 		
@@ -386,7 +326,74 @@ public class KGraph implements
 		 */
 		public void remove()
 		{
-			throw new UnsupportedOperationException("Graph modification is not supported.");
+			check();
+		
+			int linksRemoved = inDegree() + outDegree();
+			linksRemoved -= linksOut(this).size();
+			
+			numLinks -= linksRemoved;
+			
+			for (int i : series(in.size())) 
+			{
+				List<Integer> neighbors = in.get(i);
+				List<Integer> tags      = inTags.get(i);
+				
+				assert(neighbors.size() == tags.size());
+								
+				// walk backwards through the list for safe removal
+				for (int j : series(neighbors.size()-1, -1)) 
+					if (neighbors.get(j).equals(this.index))
+					{
+						neighbors.remove((int) j);
+						tags.remove((int) j);
+					}
+
+				assert(neighbors.size() == tags.size());
+
+			}
+
+			for (int i : series(out.size())) 
+			{
+				List<Integer> neighbors = out.get(i);
+				List<Integer> tags      = outTags.get(i);
+				
+				for (int j : series(neighbors.size()-1, -1)) 
+					if (neighbors.get(j).equals(this.index)) 
+					{
+						neighbors.remove((int) j);
+						tags.remove((int) j);	
+					}
+			}
+
+			// * move through all neighbor lists and decrement every index that 
+			//   is higher than the one we just removed.  
+			for(List<Integer> list : in)
+				for(int i : series(list.size()))
+				{
+					Integer value = list.get(i);
+					if(value > index)
+						list.set(i, value - 1);
+				}
+			for(List<Integer> list : out)
+				for(int i : series(list.size()))
+				{
+					Integer value = list.get(i);
+					if(value > index)
+						list.set(i, value - 1);
+				}			
+			
+			
+			in.remove((int)index);
+			out.remove((int)index);
+
+			inTags.remove((int)index);
+			outTags.remove((int)index);
+
+			dead = true;
+			modCount++;
+			nodeModCount++;
+
+			sorted = false;
 		}
 
 		private void check()
@@ -418,10 +425,8 @@ public class KGraph implements
 
 			Set<Integer> indices = new LinkedHashSet<Integer>();
 			
-			for(Triple triple : find(index, null, null))
-				indices.add(triple.object());
-			for(Triple triple : find(null, null, index))
-				indices.add(triple.subject());
+			indices.addAll(in.get(this.index));
+			indices.addAll(out.get(this.index));
 
 			return new NodeList(new ArrayList<Integer>(indices));
 		}
@@ -453,8 +458,8 @@ public class KGraph implements
 			check();
 			List<Integer> indices = new ArrayList<Integer>(outDegree());
 
-			for(Triple triple : find(index, null, null))
-				indices.add(triple.object());
+			for(int i : out.get(this.index))
+				indices.add(i);
 
 			return new NodeList(indices);
 		}
@@ -476,8 +481,8 @@ public class KGraph implements
 			check();
 			List<Integer> indices = new ArrayList<Integer>(inDegree());
 
-			for(Triple triple : find(null, null, index))
-				indices.add(triple.subject());
+			for(int index : in.get(this.index))
+				indices.add(index);
 
 			return new NodeList(indices);
 		}
@@ -503,19 +508,99 @@ public class KGraph implements
 		 */
 		public KLink connect(Node<Integer> to)
 		{
-			throw new UnsupportedOperationException("Graph modification is not supported.");
+			return connect((TNode<Integer,Integer>) to, 0);
 		}	
 
 		@Override
 		public KLink connect(TNode<Integer, Integer> other, Integer tag) 
 		{
-			throw new UnsupportedOperationException("Graph modification is not supported.");
+			assert(tag != null);
+			if(tag < 0)
+				throw new IllegalArgumentException("Negative tags not allowed. Input was " + tag);
+			
+			if(tag > maxTag + 1)
+				throw new IllegalArgumentException("Tag ("+tag+") too large. Tags must be contigous integers, the largest tag allowd is one larger than the largest tag currently in the graph ("+maxTag+")");
+				
+			maxTag = Math.max(tag, maxTag);
+
+			
+			check();
+			int fromIndex = index, toIndex = other.index();
+
+			out.get(fromIndex).add(toIndex);
+			in.get(toIndex).add(fromIndex);
+
+			outTags.get(fromIndex).add(tag);
+			inTags.get(toIndex).add(tag);
+			
+
+			modCount++;			
+			numLinks++;
+
+			sorted = false;
+			
+			int indexInOut = out.get(fromIndex).size()-1;
+
+			return new KLink(fromIndex, toIndex, outTags.get(fromIndex).get(indexInOut));
 		}
 
 		@Override
 		public void disconnect(Node<Integer> other)
-		{			
-			throw new UnsupportedOperationException("Graph modification is not supported.");
+		{
+			check();
+			
+			if(other.graph() != this.graph())
+				throw new IllegalArgumentException("Argument node belongs to diffewrent graph.");
+			
+			int mine = index, his = other.index();
+			int links = 0;
+
+			List<Integer> nb = out.get(mine);
+			List<Integer> nbT = outTags.get(mine);
+
+			for (int i : series(nb.size() - 1, -1)) {
+				if (nb.get(i) == his) {
+					nbT.remove(i);
+					nb.remove(i);
+					links++;
+				}
+			}
+
+			nb = out.get(his);
+			nbT = outTags.get(his);
+
+			for (int i : series(nb.size() - 1, -1)) {
+				if (nb.get(i) == mine) {
+					nbT.remove(i);
+					nb.remove(i);
+					links++;
+				}
+			}
+
+			nb = in.get(mine);
+			nbT = inTags.get(mine);
+
+			for (int i : series(nb.size() - 1, -1)) {
+				if (nb.get(i) == his) {
+					nbT.remove(i);
+					nb.remove(i);
+				}
+			}
+
+			nb = in.get(his);
+			nbT = inTags.get(his);
+
+			for (int i : series(nb.size() - 1, -1)) {
+				if (nb.get(i) == mine) {
+					nbT.remove(i);
+					nb.remove(i);
+				}
+			}
+
+			numLinks -= links;			
+			modCount++;
+
+			sorted = false;
 		}
 
 		@Override
@@ -547,10 +632,11 @@ public class KGraph implements
 				return false;
 			
 			int mine = index, his = to.index();
-			
-			Set<Triple> triples = find(mine, null, his);
-			
-			return ! triples.isEmpty();
+
+			if(out.get(mine).contains(his))
+				return true;
+
+			return false;
 		}
 
 		@Override
@@ -559,16 +645,24 @@ public class KGraph implements
 			if(other.graph()  != this.graph())
 				return false;
 			
-			int mine = index, his = other.index();
+			int mine = index;
+			Integer his = other.index();
 
-			return triples.contains(t(mine, tag, his));
+			List<Integer> nb = out.get(mine);
+			List<Integer> nbT = outTags.get(mine);
+
+			for (int i : series(nb.size())) 
+				if (nb.get(i) == his && nbT.get(i) == tag) 
+					return true;
+			
+			return false;
 		}
 
 		@Override
-		public KGraph graph()
+		public KGraphList graph()
 		{
 			check();
-			return KGraph.this;
+			return KGraphList.this;
 		}
 
 		@Override
@@ -582,15 +676,16 @@ public class KGraph implements
 		public int inDegree()
 		{
 			check();
-			return find(null, null, index).size();
+			return in.get(index).size();
 		}
 
 		@Override
 		public int outDegree()
 		{
 			check();
-			return find(index, null, null).size();
+			return out.get(index).size();
 		}
+
 		
 		@Override
 		public int hashCode()
@@ -601,6 +696,7 @@ public class KGraph implements
 			result = prime * result + ((index == null) ? 0 : index.hashCode());
 			return result;
 		}
+
 		
 		@Override
 		public boolean equals(Object obj)
@@ -633,74 +729,115 @@ public class KGraph implements
 		@Override
 		public List<KLink> links()
 		{
-			check();
-			Set<Triple> triples = new LinkedHashSet<>();
+			List<KLink> list = new ArrayList<KLink>(degree());
 			
-			triples.addAll(find(index, null, null));
-			triples.addAll(find(null, null, index));
-			
-			List<KLink> result = new ArrayList<>(triples.size());
-			for(Triple triple : triples)
-				result.add(new KLink(triple));
+			List<Integer> neighbors = out.get((int) index);
+			List<Integer> tags = outTags.get((int) index);
 
-			return result;
+			for(int i : series(neighbors.size()))
+				list.add(new KLink(index, neighbors.get(i), tags.get(index)));
+
+			List<Integer> nb = in.get((int) index);
+			for(int i = 0; i < nb.size(); i++)
+				if((int) nb.get(i) != (int) index) // No double reflexive links
+					list.add(new KLink((int) nb.get(i), index, i));	
+
+			return list;
 		}
 
 		@Override
 		public List<KLink> linksOut()
 		{
-			check();
-			return new ArrayList<KLink>(new LinkCollection(find(index, null, null)));
+			List<KLink> list = new ArrayList<KLink>(outDegree());
+			
+			List<Integer> nb = out.get(index);
+			List<Integer> tags = outTags.get(index);
+			
+			for(int i = 0; i < nb.size(); i++)
+				list.add(new KLink(index, nb.get(i), tags.get(i)));
+
+			return list;
 		}
 
 		@Override
 		public List<KLink> linksIn()
 		{
-			check();
-			return new ArrayList<KLink>(new LinkCollection(find(null, null, index)));
+			List<KLink> list = new ArrayList<KLink>(inDegree());
+			
+			List<Integer> nb = in.get(index);
+			List<Integer> tags = inTags.get(index);
+			
+			for(int i = 0; i < nb.size(); i++)
+				list.add(new KLink(index, nb.get(i), tags.get(i)));
+
+			return list;
 		}
 
 		@Override
 		public Collection<KLink> links(Node<Integer> other)
 		{
-			check();
-			Set<Triple> triples = new LinkedHashSet<>();
+			List<KLink> list = new ArrayList<KLink>(degree());
 
+			int o = other.index();
 			
-			triples.addAll(find(index, null, other.index()));
-			triples.addAll(find(other.index(), null, index));
-			
-			List<KLink> result = new ArrayList<>(triples.size());
-			for(Triple triple : triples)
-				result.add(new KLink(triple));
+			List<Integer> nb = out.get(index);
+			List<Integer> tags = outTags.get(index);
 
-			return result;
+			for (int i = 0; i < nb.size(); i++) 
+				if (nb.get(i) == o) 
+					list.add(new KLink(index, nb.get(i), tags.get(i)));
+
+			nb = in.get(index);
+			tags = in.get(index);
+
+			for (int i = 0; i < nb.size(); i++) 
+				if (nb.get(i) != index && nb.get(i) == o) 
+					list.add(new KLink(nb.get(i), index, tags.get(i)));
+			
+			return list;
 		}
 
 		@Override
 		public Collection<KLink> linksOut(DNode<Integer> other)
 		{
-			check();
-			return new ArrayList<KLink>(
-					new LinkCollection(find(index, null, other.index()))
-			);
+			List<KLink> list = new ArrayList<KLink>(outDegree());
+
+			int o = other.index();
+			List<Integer> nb = out.get(index);
+			List<Integer> tags = outTags.get(index);
+
+			for (int i = 0; i < nb.size(); i++) 
+				if (nb.get(i) == o) 
+					list.add(new KLink(index, nb.get(i), tags.get(i)));
+
+			return list;
 		}
 
 		@Override
 		public Collection<KLink> linksIn(DNode<Integer> other)
-		{			
+		{
 			check();
-			return new ArrayList<KLink>(
-					new LinkCollection(find(other.index(), null, index))
-			);
+			List<KLink> list = new ArrayList<KLink>(inDegree());
+
+			int o = other.index();
+			List<Integer> nb   = in.get(index);
+			List<Integer> tags = inTags.get(index);
+
+			for (int i = 0; i < nb.size(); i++) 
+				if ((int) nb.get(i) == o) 
+					list.add(new KLink((int) nb.get(i), index, tags.get(i)));
+
+			return list;
 		}
+
+
 
 		@Override
 		public TLink<Integer, Integer> link(TNode<Integer, Integer> other) 
 		{
 			check();
 			if(other.graph() != this.graph())
-				throw new IllegalArgumentException("Argument 'node' not from the same graph.");
+				throw new IllegalArgumentException("Argument node not from the same graph.");
 			
 			Collection<? extends KLink> col = links((DNode)other);
 			if(col.isEmpty())
@@ -711,38 +848,45 @@ public class KGraph implements
 		@Override
 		public Collection<Integer> tags() 
 		{
-			Set<Integer> tags = new LinkedHashSet<>();
+			List<Integer> tags = new ArrayList<Integer>(degree());
 
-			for(Triple triple : find(index, null, null))
-				tags.add(triple.predicate());
-			for(Triple triple : find(null, null, index))
-				tags.add(triple.predicate());			
-			
+			tags.addAll(outTags.get((int) index));
+			tags.addAll(inTags.get((int) index));
+
 			return tags;
 		}
 
 		@Override
 		public Collection<KNode> toTag(Integer tag) 
 		{
-			check();
-			Set<Integer> indices = new LinkedHashSet<Integer>();
+			List<KNode> list = new ArrayList<KNode>();
 			
-			for(Triple triple : find(index, tag, null))
-				indices.add(triple.object());
-		
-			return new NodeList(new ArrayList<>(indices));
+			List<Integer> nb = out.get((int) index);
+			List<Integer> tags = outTags.get((int) index);
+
+			for (int i : series(nb.size())) {
+				if (tags.get(i) == tag) {
+					list.add(new KNode(nb.get(i)));
+				}
+			}
+			return list;
 		}
 
 		@Override
 		public Collection<KNode> fromTag(Integer tag) 
 		{
-			check();
-			Set<Integer> indices = new LinkedHashSet<Integer>();
+			List<KNode> list = new ArrayList<KNode>();
 			
-			for(Triple triple : find(null, tag, index))
-				indices.add(triple.subject());
-		
-			return new NodeList(new ArrayList<>(indices));
+			List<Integer> nb   = in.get((int) index);
+			List<Integer> tags = inTags.get((int) index);
+
+			for (int i : series(nb.size())) {
+				if (tags.get(i) == tag) {
+					list.add(new KNode(nb.get(i)));
+				}
+			}
+			
+			return list;
 		}
 	}
 	
@@ -759,11 +903,6 @@ public class KGraph implements
 			this.from = new KNode(from);
 			this.to = new KNode(to);
 			this.tag = tag;
-		}
-
-		public KLink(Triple t)
-		{
-			this(t.subject(), t.object(), t.predicate());
 		}
 
 		private void check()
@@ -783,10 +922,10 @@ public class KGraph implements
 		}
 
 		@Override
-		public KGraph graph()
+		public KGraphList graph()
 		{
 			check();
-			return KGraph.this;
+			return KGraphList.this;
 		}
 
 		/**
@@ -795,30 +934,28 @@ public class KGraph implements
 		@Override
 		public void remove()
 		{
-			throw new UnsupportedOperationException("Graph modification is not supported.");
-//			
-//			check();
-//
-//			int index = out.get(from.index()).indexOf(to.index());
-//			if(index < 0)
-//				throw new IllegalStateException("Illegal state. Live link object not found in graph.");
-//			
-//			out.get(from.index()).remove(index);
-//			outTags.get(from.index()).remove(index);
-//			
-//			index = in.get(to.index()).indexOf(from.index());
-//			if(index < 0)
-//				throw new IllegalStateException("Illegal state. Live link object not found in graph.");
-//			
-//			in.get(to.index()).remove(index);
-//			inTags.get(to.index()).remove(index);
-//
-//			numLinks --;
-//			
-//			modCount++;
-//			dead = true;
-//
-//			sorted = false;
+			check();
+
+			int index = out.get(from.index()).indexOf(to.index());
+			if(index < 0)
+				throw new IllegalStateException("Illegal state. Live link object not found in graph.");
+			
+			out.get(from.index()).remove(index);
+			outTags.get(from.index()).remove(index);
+			
+			index = in.get(to.index()).indexOf(from.index());
+			if(index < 0)
+				throw new IllegalStateException("Illegal state. Live link object not found in graph.");
+			
+			in.get(to.index()).remove(index);
+			inTags.get(to.index()).remove(index);
+
+			numLinks --;
+			
+			modCount++;
+			dead = true;
+
+			sorted = false;
 		}
 
 		@Override
@@ -885,9 +1022,9 @@ public class KGraph implements
 		}
 		
 
-		private KGraph getOuterType()
+		private KGraphList getOuterType()
 		{
-			return KGraph.this;
+			return KGraphList.this;
 		}
 
 		public String toString()
@@ -945,28 +1082,6 @@ public class KGraph implements
 			return indices.size();
 		}
 	}
-	
-	private class KLinkList extends AbstractList<KLink>
-	{
-		private List<Triple> triples;
-
-		public KLinkList(List<Triple> triples)
-		{
-			this.triples = triples;
-		}
-
-		@Override
-		public KLink get(int index)
-		{
-			return new KLink(triples.get(index));
-		}
-
-		@Override
-		public int size()
-		{
-			return triples.size();
-		}
-	}
 
 	
 	private class SeriesSet extends AbstractSet<Integer>
@@ -1005,33 +1120,30 @@ public class KGraph implements
 	{
 		return new NodeList(indices);
 	}
-	
-	private class FastNodeList extends AbstractList<KNode>
+
+	@Override
+	public List<KNode> neighborsFast(Node<Integer> node)
 	{
-		private List<Triple> triples;
-		private boolean useSubject;
-
-		public FastNodeList(List<Triple> triples, boolean useSubject)
-		{
-			this.triples = triples;
-			this.useSubject = useSubject;
-		}
-
-		@Override
-		public KNode get(int index)
-		{
-			Triple triple = triples.get(index);
-			int ni = useSubject ? triple.subject() : triple.object();  
-			
-			return new KNode(ni);
-		}
-
-		@Override
-		public int size()
-		{
-			return triples.size();
-		}
+		if(node.graph() != this)
+			throw new IllegalArgumentException("Cannot call with node from another graph.");
+		
+		int index = node.index();
+		
+		List<Integer> indices = concat(in.get(index), out.get(index));
+		
+		return new NodeList(indices);
 	}
+
+	public List<KNode> neighborsFastIn(Node<Integer> node)
+	{
+		return new NodeList(in.get(node.index()));
+	}
+			
+	public List<KNode> neighborsFastOut(Node<Integer> node)
+	{
+		return new NodeList(out.get(node.index()));
+	}
+
 	
 	private boolean eq(Object a, Object b)
 	{
@@ -1076,7 +1188,54 @@ public class KGraph implements
 		return sb.toString();
 	}
 	
-
+	/**
+	 * Resets all neighbour list to their current capacity, plus the 
+	 * given margin. 
+	 * 
+	 * @param margin
+	 */
+	public void compact(int margin)
+	{
+		for(int i : Series.series(in.size()))
+		{
+			List<Integer> old = in.get(i);
+			List<Integer> nw = new ArrayList<Integer>(old.size() + margin);
+			nw.addAll(old);
+			
+			in.set(i, nw);
+		}
+		
+		for(int i : Series.series(out.size()))
+		{
+			List<Integer> old = out.get(i);
+			List<Integer> nw = new ArrayList<Integer>(old.size() + margin);
+			nw.addAll(old);
+			
+			out.set(i, nw);
+		}
+	}
+	
+	/**
+	 * Sorts all neighbour lists
+	 * 
+	 * @param margin
+	 */
+	public void sort()
+	{
+		if(sorted)
+			return;
+		
+		for(int i : Series.series(in.size()))
+			Collections.sort(in.get(i));
+		
+		for(int i : Series.series(out.size()))
+			Collections.sort(out.get(i));
+		
+		
+		
+		sorted = true;
+	}
+	
 	/**
 	 * Creates a copy of the given graph as a LightDGraph object. 
 	 * 
@@ -1106,7 +1265,9 @@ public class KGraph implements
 			return hash;
 		
 		hash = 1;
-	
+		sort();
+		
+
 		hash = 31 * hash + size();
 		
 		return hash;
@@ -1193,7 +1354,7 @@ public class KGraph implements
 	 * @param relations
 	 * @return
 	 */
-	public static KGraph loadHDT(File file)
+	public static KGraphList loadHDT(File file)
 			throws IOException
 	{
 		return loadHDT(file, new ArrayList<String>(), new ArrayList<String>());
@@ -1207,12 +1368,13 @@ public class KGraph implements
 	 * @return
 	 * @throws IOException
 	 */
-	public static KGraph loadHDT(File file, List<String> nodes, List<String> relations) 
+	public static KGraphList loadHDT(File file, List<String> nodes, List<String> relations) 
 			throws IOException
 	{
 		int nextTag = 0; 
 		
 		Map<String, Integer> nodeMap = new HashMap<>(), relationMap = new HashMap<>();
+		KGraphList graph = new KGraphList();
 		
 		HDT hdt = HDTManager.loadIndexedHDT(
 				file.getName().endsWith(".gz")?
@@ -1221,17 +1383,12 @@ public class KGraph implements
 	
 		nodes.clear();
 		relations.clear();
-		
-		List<Triple> triples = Collections.emptyList();
     
     	try {
-    		
-    		// * Pass one: fill the maps
     		IteratorTripleString it = hdt.search("", "", "");
     
-    		int estTotal = (int)it.estimatedNumResults(), total = 0;
+    		int total = (int)it.estimatedNumResults(), i = 0;
     
-    		int nextIndex = 0;
         	while(it.hasNext()) 
         	{
         		TripleString ts = it.next();
@@ -1243,7 +1400,7 @@ public class KGraph implements
         		Integer node1 = nodeMap.get(subject);
         		if(node1 == null)
         		{
-        			node1 = nextIndex ++;
+        			node1 = graph.add().index();
         			nodeMap.put(subject, node1);
         			nodes.add(subject);
         		}
@@ -1251,7 +1408,7 @@ public class KGraph implements
         		Integer node2 = nodeMap.get(object);
         		if(node2 == null)
         		{
-        			node2 = nextIndex ++;
+        			node2 = graph.add().index();
         			nodeMap.put(object, node2);
         			nodes.add(object);
         		}
@@ -1259,35 +1416,15 @@ public class KGraph implements
         		Integer tag = relationMap.get(predicate);
         		if(tag == null)
         		{
-        			tag = nextTag ++;
+        			tag = nextTag;
+        			nextTag ++;
         			
         			relationMap.put(predicate, tag);
         			relations.add(predicate);
         		}
-        		  
-        		total++;
-        		// dot(i++, total);
-        	}
-        	
-    		triples = new ArrayList<Triple>(total); 
-        	
-        	// * Pass two : extract the triples
-     		it = hdt.search("", "", "");
-     	        
-        	while(it.hasNext()) 
-        	{
-        		TripleString ts = it.next();
-        
-        		String subject = ts.getSubject().toString(),
-        			   predicate = ts.getPredicate().toString(),
-        		       object = ts.getObject().toString();
+        		    							
+        		graph.get(node1).connect(graph.get(node2), tag);
         		
-        		int s = nodeMap.get(subject),
-        		    o = nodeMap.get(object),       		
-        		    p = relationMap.get(predicate);
-        		
-        		triples.add(t(s, p, o));
-        		    							        		
         		// dot(i++, total);
         	}
     	} catch (NotFoundException e)
@@ -1298,116 +1435,116 @@ public class KGraph implements
     		hdt.close();
     	}
 
-		return new KGraph(triples);
+		return graph;
 	}	
 	
-//	/**
-//	 * Can't get this to work just yet. Should use the HDT dictionaries.
-//	 * 
-//	 * @param file
-//	 * @param nodes
-//	 * @param relations
-//	 * @return
-//	 * @throws IOException
-//	 */
-//	public static KGraph loadHDTBuggy(File file, List<String> nodes, List<String> relations) 
-//			throws IOException
-//	{
-//		int nextTag = 0; 
-//		
-//		Map<String, Integer> nodeMap = new HashMap<>(), relationMap = new HashMap<>();
-//		KGraph graph = new KGraph();
-//		
-//		HDT hdt = HDTManager.loadIndexedHDT(
-//				new BufferedInputStream(new FileInputStream(file)), null);
-//		
-//		LinkedHashSet<String> nodeSet = new LinkedHashSet<String>();
-//		LinkedHashSet<String> relSet = new LinkedHashSet<String>();
-//
-//		try {
-//			
-//			// * First pass, get all node and predicate labels
-//			IteratorTripleString it = hdt.search("", "", "");
-//			
-//			while(it.hasNext())
-//			{
-//				TripleString ts = it.next();
-//				
-//				String subject   = ts.getSubject().toString(),
-//				       predicate = ts.getPredicate().toString(),
-// 				       object    = ts.getObject().toString();
-//				
-//				nodeSet.add(subject);
-//				nodeSet.add(object);
-//				relSet.add(predicate);
-//			}
-//		} catch (NotFoundException e) 
-//		{
-//			// File must be empty, return empty graph
-//		} finally 
-//		{
-//			// IMPORTANT: Free resources
-//			hdt.close();
-//		}
-//
-//		nodes.clear();
-//		nodes.addAll(nodeSet);
-//		for(int i : series(nodes.size()))
-//			nodeMap.put(nodes.get(i), i);
-//		
-//		System.out.println(nodes.size());
-//			
-//		relations.clear();
-//		relations.addAll(relSet);
-//		for(int i : series(relations.size()))
-//			relationMap.put(relations.get(i), i);
-//		
-//		Global.log().info("Labels read from dictionary");
-//		
-//		for(int i : series(nodes.size()))
-//			graph.add();
-//		System.out.println("... " + graph.nodes().size());
-//				
-//		
-//		// * Second pass, construct graph
-//		for(KNode node : graph.nodes())
-//		{			
-//			Functions.dot(node.index(), graph.size());
-//			
-//			String subject = nodes.get(node.index());
-//			
-//			IteratorTripleString it;
-//			try {
-//				it = hdt.search(subject, "", "");
-//			} catch (NotFoundException e)
-//			{
-//				continue;
-//			}
-//			
-//			System.out.println(it.estimatedNumResults());
-//			
-//			while(it.hasNext()) 
-//			{
-//				TripleString ts = it.next();
-//
-//				String predicate = ts.getPredicate().toString(),
-//				       object = ts.getObject().toString();
-//				    				
-//				Integer objIndex = nodeMap.get(object);
-//				if(objIndex == null)
-//					System.out.println("object not found in map: " + object);
-//				
-//				KNode node2 = graph.get(objIndex);
-//				int tag = relationMap.get(predicate);
-//								
-//				node.connect(node2, tag);
-//			}
-//
-//		}
-//
-//		return graph;
-//	}
-//	
+	/**
+	 * Can't get this to work just yet. Should use the HDT dictionaries.
+	 * 
+	 * @param file
+	 * @param nodes
+	 * @param relations
+	 * @return
+	 * @throws IOException
+	 */
+	public static KGraphList loadHDTBuggy(File file, List<String> nodes, List<String> relations) 
+			throws IOException
+	{
+		int nextTag = 0; 
+		
+		Map<String, Integer> nodeMap = new HashMap<>(), relationMap = new HashMap<>();
+		KGraphList graph = new KGraphList();
+		
+		HDT hdt = HDTManager.loadIndexedHDT(
+				new BufferedInputStream(new FileInputStream(file)), null);
+		
+		LinkedHashSet<String> nodeSet = new LinkedHashSet<String>();
+		LinkedHashSet<String> relSet = new LinkedHashSet<String>();
+
+		try {
+			
+			// * First pass, get all node and predicate labels
+			IteratorTripleString it = hdt.search("", "", "");
+			
+			while(it.hasNext())
+			{
+				TripleString ts = it.next();
+				
+				String subject   = ts.getSubject().toString(),
+				       predicate = ts.getPredicate().toString(),
+ 				       object    = ts.getObject().toString();
+				
+				nodeSet.add(subject);
+				nodeSet.add(object);
+				relSet.add(predicate);
+			}
+		} catch (NotFoundException e) 
+		{
+			// File must be empty, return empty graph
+		} finally 
+		{
+			// IMPORTANT: Free resources
+			hdt.close();
+		}
+
+		nodes.clear();
+		nodes.addAll(nodeSet);
+		for(int i : series(nodes.size()))
+			nodeMap.put(nodes.get(i), i);
+		
+		System.out.println(nodes.size());
+			
+		relations.clear();
+		relations.addAll(relSet);
+		for(int i : series(relations.size()))
+			relationMap.put(relations.get(i), i);
+		
+		Global.log().info("Labels read from dictionary");
+		
+		for(int i : series(nodes.size()))
+			graph.add();
+		System.out.println("... " + graph.nodes().size());
+				
+		
+		// * Second pass, construct graph
+		for(KNode node : graph.nodes())
+		{			
+			Functions.dot(node.index(), graph.size());
+			
+			String subject = nodes.get(node.index());
+			
+			IteratorTripleString it;
+			try {
+				it = hdt.search(subject, "", "");
+			} catch (NotFoundException e)
+			{
+				continue;
+			}
+			
+			System.out.println(it.estimatedNumResults());
+			
+			while(it.hasNext()) 
+			{
+				TripleString ts = it.next();
+
+				String predicate = ts.getPredicate().toString(),
+				       object = ts.getObject().toString();
+				    				
+				Integer objIndex = nodeMap.get(object);
+				if(objIndex == null)
+					System.out.println("object not found in map: " + object);
+				
+				KNode node2 = graph.get(objIndex);
+				int tag = relationMap.get(predicate);
+								
+				node.connect(node2, tag);
+			}
+
+		}
+
+		return graph;
+	}
+	
 	public static List<List<Integer>> degrees(DTGraph<Integer, Integer> graph)
 	{
 		List<Integer> inDegrees = new ArrayList<>(graph.size());
@@ -1437,7 +1574,7 @@ public class KGraph implements
 		return Arrays.asList(inDegrees, outDegrees, tagDegrees);
 	}
 	
-	public static List<List<Integer>> degrees(KGraph graph)
+	public static List<List<Integer>> degrees(KGraphList graph)
 	{
 		List<Integer> in = new ArrayList<>(graph.size());
 		List<Integer> out = new ArrayList<>(graph.size());

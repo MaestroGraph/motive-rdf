@@ -21,8 +21,8 @@ import nl.peterbloem.kit.Pair;
 import nl.peterbloem.kit.PitmanYorModel;
 import nl.peterbloem.kit.Series;
 import nl.peterbloem.motive.rdf.EdgeListModel.Prior;
-import nl.peterbloem.motive.rdf.KGraph.KLink;
-import nl.peterbloem.motive.rdf.KGraph.KNode;
+import nl.peterbloem.motive.rdf.KGraphList.KLink;
+import nl.peterbloem.motive.rdf.KGraphList.KNode;
 
 public class SamplerTest
 {
@@ -39,14 +39,14 @@ public class SamplerTest
 				new Triple(0, 0, 1), new Triple(0, 1, 12), 
 				new Triple(0, 14, 11));
 		
-		assertEquals(expected, Sampler.triples(g1, values));
+		assertEquals(expected, Utils.triples(g1, values));
 	
 	}
 	
 	@Test 
 	public void testCL()
 	{
-		KGraph data = Datasets.dogfood();
+		KGraphList data = Datasets.dogfood();
 
 		System.out.println(codelength(data, Prior.COMPLETE));
 		for(int i : Series.series(100))
@@ -63,15 +63,41 @@ public class SamplerTest
 	@Test 
 	public void testRun()
 	{
-		KGraph data = Datasets.dogfood();
+		KGraphList data = Datasets.dogfood();
 		
-		List<List<Integer>> degrees = KGraph.degrees(data);
+		List<List<Integer>> degrees = KGraphList.degrees(data);
 
 		double nullBits = EdgeListModel.codelength(degrees, Prior.COMPLETE);
 		
 		System.out.println("Size under null model (ML Bound) " +  nullBits);
 		
-		Sampler sampler = new Sampler(data, 1000000, 100000, 3, 5, 5);
+		Sampler sampler = new Sampler(data, 1000000, 100000, 3, 5, 5, 5);
+		
+		for(DTGraph<Integer, Integer> pattern : sampler.patterns().subList(0, 25))
+		{
+			System.out.println(
+					sampler.instances(pattern).size() + " " +
+					sampler.instances(pattern).get(0) + " " + pattern);
+			
+			double motifBits = MotifCode.codelength(degrees, pattern, sampler.instances(pattern));
+			// System.out.println(motifBits);
+			System.out.println(" compression factor: " + (nullBits - motifBits));
+
+		}
+	}
+	
+	
+	@Test 
+	public void testRun2()
+	{
+		KGraphList data = Datasets.test();
+		
+		List<List<Integer>> degrees = KGraphList.degrees(data);
+		double nullBits = EdgeListModel.codelength(degrees, Prior.COMPLETE);
+		
+		System.out.println("Size under null model (ML Bound) " +  nullBits);
+		
+		Sampler sampler = new Sampler(data, 50000, 10000, 2, 4, 5, 1);
 		
 		for(DTGraph<Integer, Integer> pattern : sampler.patterns().subList(0, 25))
 		{

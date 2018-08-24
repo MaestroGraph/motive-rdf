@@ -31,7 +31,7 @@ import nl.peterbloem.kit.Global;
 import nl.peterbloem.kit.Series;
 import nl.peterbloem.motive.rdf.Datasets;
 import nl.peterbloem.motive.rdf.EdgeListModel;
-import nl.peterbloem.motive.rdf.KGraph;
+import nl.peterbloem.motive.rdf.KGraphList;
 import nl.peterbloem.motive.rdf.MotifCode;
 import nl.peterbloem.motive.rdf.Nauty;
 import nl.peterbloem.motive.rdf.Sampler;
@@ -85,7 +85,7 @@ public class Run
 			usage="Maximum number of variables in a single motif")
 	private static int maxVars = 6;
 	
-	@Option(name="--fast-py", usage="Use fast PY model (don't optimize the prameters). Much faster computation of compression factors, less effective compresssion.")
+	@Option(name="--fast-py", usage="Use fast PY model (don't optimize the parameters). Much faster computation of compression factors, less effective compresssion.")
 	private static boolean fastPY = false;
 
 	@Option(name="--help", usage="Print usage information.", aliases={"-h"}, help=true)
@@ -122,7 +122,7 @@ public class Run
 		List<String> nodes = new ArrayList<>();
 		List<String> relations = new ArrayList<>();
 		
-		KGraph data;
+		KGraphList data;
 		if(dataset != null)
 		{
 			if(dataset.trim().toLowerCase().equals("dogfood"))
@@ -134,7 +134,7 @@ public class Run
 
 		} else if(file != null) 
 		{
-			data = KGraph.loadHDT(file, nodes, relations);
+			data = KGraphList.loadHDT(file, nodes, relations);
 		} else 
 		{
 			throw new IllegalArgumentException("file or dataset argument must be set.");
@@ -158,9 +158,9 @@ public class Run
 	 * @param data
 	 * @throws IOException
 	 */
-	public static void singleMotif(List<String> nodes, List<String> relations, KGraph data) throws IOException
+	public static void singleMotif(List<String> nodes, List<String> relations, KGraphList data) throws IOException
 	{
-		List<List<Integer>> degrees = KGraph.degrees(data);
+		List<List<Integer>> degrees = KGraphList.degrees(data);
 
 		double nullBits = EdgeListModel.codelength(degrees, Prior.ML);
 		
@@ -194,7 +194,7 @@ public class Run
 			
 			List<List<Integer>> instances = sampler.instances(pattern);
 			
-			String bgp = KGraph.bgp(KGraph.recover(pattern, nodes, relations));
+			String bgp = KGraphList.bgp(KGraphList.recover(pattern, nodes, relations));
 			motifList.write(i + ", " + instances.size() + ", " + (nullBits - codelengths.get(i)) + ", " + bgp + " \n");
 			
 			FileWriter values = 
@@ -210,8 +210,8 @@ public class Run
 				List<String> strs = new ArrayList<>(vals.size());
 				
 				try {
-					strs.addAll(KGraph.recover(ns, nodes));
-					strs.addAll(KGraph.recover(ts, relations));
+					strs.addAll(KGraphList.recover(ns, nodes));
+					strs.addAll(KGraphList.recover(ts, relations));
 				} catch(Exception e)
 				{
 					System.out.println("caught " + e.getMessage());
@@ -240,9 +240,9 @@ public class Run
 	}
 	
 	
-	public static void multipleMotif(List<String> nodes, List<String> relations, KGraph data) throws IOException
+	public static void multipleMotif(List<String> nodes, List<String> relations, KGraphList data) throws IOException
 	{
-		List<List<Integer>> degrees = KGraph.degrees(data);
+		List<List<Integer>> degrees = KGraphList.degrees(data);
 
 		double nullBits = EdgeListModel.codelength(degrees, Prior.ML);
 		
@@ -365,7 +365,7 @@ public class Run
 			DTGraph<Integer, Integer> pattern = patSelected.get(i);
 			List<List<Integer>> instances = valSelected.get(i);
 			
-			String bgp = KGraph.bgp(KGraph.recover(pattern, nodes, relations));
+			String bgp = KGraphList.bgp(KGraphList.recover(pattern, nodes, relations));
 			motifList.write(i + ", " + instances.size() + ", " + bgp + " \n");
 			
 			FileWriter valueOut = 
@@ -381,8 +381,8 @@ public class Run
 				List<String> strs = new ArrayList<>(vals.size());
 				
 				try {
-					strs.addAll(KGraph.recover(ns, nodes));
-					strs.addAll(KGraph.recover(ts, relations));
+					strs.addAll(KGraphList.recover(ns, nodes));
+					strs.addAll(KGraphList.recover(ts, relations));
 				} catch(Exception e)
 				{
 					System.out.println("caught " + e.getMessage());
