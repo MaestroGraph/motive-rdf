@@ -181,7 +181,6 @@ public class NautyTest
 //		System.out.println(labelMap);
 //		System.out.println(tagMap);
 		
-		
 		DTGraph<Integer, Integer> nw = new MapDTGraph<>();
 		
 		for(DTNode<Integer, Integer> node : in.nodes())
@@ -292,6 +291,14 @@ public class NautyTest
 	}
 	
 	@Test
+	public void testCanonicalPermutedFixedDistict()
+	{
+		testCanonicalPermuted(100, 5, 5, 1, 5, 5, true);
+		testCanonicalPermuted(100, 5, 5, 1, 0, 0, true);
+		testCanonicalPermuted(100, 3, 5, 4, 0, 3, true);
+	}
+	
+	@Test
 	public void test5Nodes()
 	{
 		
@@ -337,19 +344,24 @@ public class NautyTest
 		System.out.println((Functions.toc() / (double)r) + " seconds");
 	}
 	
+	
 	public void testCanonicalPermuted(int repeats, int n, int m, int numTags, int nVar, int mVar)
 	{
-
+		testCanonicalPermuted(repeats, n, m, numTags, nVar, mVar, false);
+	}
+	
+	public void testCanonicalPermuted(int repeats, int n, int m, int numTags, int nVar, int mVar, boolean distinct)
+	{
 		for(int i : Series.series(repeats))
 		{
     		DTGraph<Integer, Integer> r1o = random(n, m, numTags, nVar, mVar);
-    		DTGraph<Integer, Integer> r1 = Nauty.canonical(r1o);
+    		DTGraph<Integer, Integer> r1 = Nauty.canonical(r1o, distinct);
     		
     		
     		Order order = Order.random(r1.size());
     		DTGraph<Integer, Integer> r2 = Graphs.reorder(r1,  order);
     		r2 = permute(r2);
-    		r2 = Nauty.canonical(r2);
+    		r2 = Nauty.canonical(r2, distinct);
     
     		// System.out.println(r1o);
     		assertEquals(r1, r2);
@@ -406,6 +418,22 @@ public class NautyTest
 	
 		System.out.println(Nauty.canonical(graph));
 		System.out.println(Nauty.canonical(graph2));
+	}
+	
+	@Test
+	public void testSpecific()
+	{
+		DTGraph<Integer, Integer> graph = new MapDTGraph<>();
+		
+		DTNode<Integer,Integer> m1 = graph.add(-1),
+		                        n0 = graph.add(0),
+		                        n1 = graph.add(1);
+		
+		m1.connect(n0, -2);
+		m1.connect(n1, 1);
+		
+		System.out.println(graph);
+		System.out.println(Nauty.canonical(graph, true));
 
 	}
 }

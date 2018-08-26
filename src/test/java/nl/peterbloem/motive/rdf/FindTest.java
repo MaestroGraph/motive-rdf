@@ -1,5 +1,6 @@
 package nl.peterbloem.motive.rdf;
 
+import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static nl.peterbloem.motive.rdf.Triple.t;
 import static org.junit.Assert.*;
@@ -200,6 +201,49 @@ public class FindTest
     		assertEquals(MIDDLE, matches.size());
 		}
 	}
+	
+	@Test
+	public void testSynth2()
+	{
+		int MIDDLE = 100;
+		KGraph graph = Datasets.test(MIDDLE);
+		
+		{
+    		DTGraph<Integer, Integer> pattern = new MapDTGraph<>();
+    		DTNode<Integer, Integer> m1 = pattern.add(-1),
+    				                 n0 = pattern.add(0),
+    				                 n1 = pattern.add(1);
+    		
+    		m1.connect(n0, -2);
+    		m1.connect(n1,  1);
+    		
+    		System.out.println(pattern);
+    
+    		List<List<Integer>> matches = Find.find(pattern, graph);
+    		System.out.println(matches.size());
+    		System.out.println(matches);
+    		
+    		assertEquals(MIDDLE, matches.size());
+		}		
+		{	// * tests that the matcher generates _distinct_ result triples
+			//   for each triple in the pattern.
+    		DTGraph<Integer, Integer> pattern = new MapDTGraph<>();
+    		DTNode<Integer, Integer> m2 = pattern.add(-2),
+    				                 m1 = pattern.add(-1),
+    				                 n0 = pattern.add(0);
+    		
+    		m2.connect(m1, -3);
+    		m2.connect(n0,  0);
+    		
+    		System.out.println(pattern);
+    
+    		List<List<Integer>> matches = Find.find(pattern, graph);
+    		System.out.println(matches.size());
+    		System.out.println(matches);
+    		
+    		assertEquals(MIDDLE, matches.size());
+		}
+	}
 
 	@Test
 	public void testDogfood()
@@ -221,6 +265,21 @@ public class FindTest
 		System.out.println(labels.get(5326));
 		
 		System.out.println("data loaded.");
+		
+		{	// Query 0
+    		DTGraph<Integer, Integer> pattern = new MapDTGraph<>();
+    		DTNode<Integer, Integer> n1 = pattern.add(-1),
+    				                 n2 = pattern.add(5326),
+    				                 n3 = pattern.add(-3);
+    		
+    		n1.connect(n2, year);
+    		n1.connect(n3, type);
+    
+    		tic();
+    		List<List<Integer>> matches = Find.find(pattern, graph);
+    		System.out.println("query 0, time:        " + Functions.toc() + " seconds.");  		
+    		System.out.println("query 0, num results: " + matches.size());
+		}	
 		
 		{	// Query 1
     		DTGraph<Integer, Integer> pattern = new MapDTGraph<>();
@@ -256,24 +315,26 @@ public class FindTest
     		System.out.println("query 2, num results: " + matches.size());
     		
     		assertEquals(3307, matches.size());
-		}
+   		}
 		
 		
-		{	// Query 3.0
-    		DTGraph<Integer, Integer> pattern = new MapDTGraph<>();
-    		DTNode<Integer, Integer> n1 = pattern.add(-1),
-    				                 n2 = pattern.add(-2),
-    				                 n3 = pattern.add(inProc);
-    		
-    		n1.connect(n2, -3);
-    		n1.connect(n3, type);
-    
-    		tic();
-    		List<List<Integer>> matches = Find.find(pattern, graph, 60);
-    		System.out.println("query 3, time:        " + Functions.toc() + " seconds."); // 17.3s in rdflib
-    		                                                                              // (132 seconds mine)
-    		System.out.println("query 3, num results: " + matches.size());    		
-		}
+//		{	// Query 3.0
+//    		DTGraph<Integer, Integer> pattern = new MapDTGraph<>();
+//    		DTNode<Integer, Integer> n1 = pattern.add(-1),
+//    				                 n2 = pattern.add(-2),
+//    				                 n3 = pattern.add(inProc);
+//    		
+//    		n1.connect(n2, -3);
+//    		n1.connect(n3, type);
+//    
+//    		tic();
+//    		List<List<Integer>> matches = Find.find(pattern, graph, 60);
+//    		System.out.println("query 3, time:        " + Functions.toc() + " seconds."); // 17.3s in rdflib
+//    		                                                                              // (132 seconds mine)
+//    		System.out.println("query 3, num results: " + matches.size()); 
+//    		
+//    		System.out.println(Find.nonuniques);
+//		}
 		
 		{	// Query 3
     		DTGraph<Integer, Integer> pattern = new MapDTGraph<>();
@@ -289,8 +350,10 @@ public class FindTest
     		System.out.println("query 3, time:        " + Functions.toc() + " seconds."); // 17.3s in rdflib
     		                                                                              // (132 seconds mine)
     		System.out.println("query 3, num results: " + matches.size());
+
+    		// assertEquals(81855, matches.size());
+    		assertEquals(77897, matches.size());
     		
-    		assertEquals(81855, matches.size());
 		}
 		
 	}

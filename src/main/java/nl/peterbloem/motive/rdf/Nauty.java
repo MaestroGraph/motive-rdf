@@ -22,6 +22,7 @@ import org.nodes.DTNode;
 import org.nodes.MapDTGraph;
 import org.nodes.Node;
 import org.nodes.TGraph;
+import org.openrdf.sail.rdbms.algebra.NumberValue;
 
 import nl.peterbloem.kit.Global;
 import nl.peterbloem.kit.Order;
@@ -53,6 +54,12 @@ public class Nauty
 		return new Nauty(pattern).canonical;
 	}
 	
+	public static DTGraph<Integer, Integer> canonical(DTGraph<Integer, Integer> pattern, boolean distinct)
+	{
+		return new Nauty(pattern, distinct).canonical;
+	}
+	
+	
 	public static DTGraph<Integer, Integer> canonical(DTGraph<Integer, Integer> pattern, List<Integer> values)
 	{
 		Nauty nauty = new Nauty(pattern);
@@ -82,13 +89,27 @@ public class Nauty
 	private Map<Integer, List<DTLink<Integer, Integer>>> tagToLink = new LinkedHashMap<>();
 	private DTGraph<Integer, Integer> canonical;
 	private Partition maxPartition;
+	
+	public boolean distinctVars = false;
 
 	long t0 = System.currentTimeMillis();
 	long tLast = t0;
 		
 	private Nauty(DTGraph<Integer, Integer> pattern)
 	{
+		this(pattern, false);
+	}
+	
+	/**
+	 * 
+	 * @param pattern
+	 * @param distinctVars If true, the variables for nodes and predicates will be distinct
+	 *   if false, the variable "-1" may occur for both a node and a predicate.
+	 */
+	private Nauty(DTGraph<Integer, Integer> pattern, boolean distinctVars)
+	{
 		this.pattern = pattern;
+		this.distinctVars = distinctVars;
 		
 		for(DTLink<Integer, Integer> link : pattern.links())
 		{
@@ -541,7 +562,7 @@ public class Nauty
 	}
 	
 	/**
-	 * Converts a trivial partition to a string representing the graph's 
+	 * Converts a trivial partition to a "string" representing the graph's 
 	 * structure (without labels) in a particular format.
 	 *  
 	 * @param partition
@@ -552,6 +573,9 @@ public class Nauty
 		List<Triple> triples = new ArrayList<Triple>((int)pattern.numLinks());
 		
 		int negLabel = -1, negTag = -1; // next available negative label
+		
+		if(distinctVars)
+			negTag = - Utils.numVarLabels(pattern) - 1;
 
 		Map<Integer, Integer> newLabels = new HashMap<>();
 		Map<Integer, Integer> newTags = new HashMap<>();

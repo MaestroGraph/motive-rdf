@@ -29,7 +29,7 @@ import nl.peterbloem.kit.Series;
 import nl.peterbloem.motive.rdf.KGraph.KNode;
 
 public abstract class Find
-{
+{	
 	private Find() {}
 
 	/**
@@ -58,6 +58,8 @@ public abstract class Find
 	 */
 	public static List<List<Integer>> find(DTGraph<Integer, Integer> pattern, KGraph graph, int maxTime)
 	{				
+		TIMED_OUT = true;
+		
 		Candidates candidates = new Candidates(pattern, graph);
 		
 		List<List<Integer>> matches = new ArrayList<>();
@@ -65,6 +67,9 @@ public abstract class Find
 				
 		return matches;
 	}
+	
+	// Whether the last search times out
+	public static boolean TIMED_OUT = false;
 	
 	private static void findInner(Candidates candidates, int depth, List<List<Integer>> matches, Long stopTime)
 	{	
@@ -109,7 +114,10 @@ public abstract class Find
     			
     			findInner(nwCandidates, depth+1, matches, stopTime);
     			if(stopTime != null && System.nanoTime() > stopTime)
+    			{
+    				TIMED_OUT = true;
     				return;
+    			}
 			}
 	}
 	
@@ -273,7 +281,9 @@ public abstract class Find
 			if(! isSingleton())
 				return false;
 			
-			// * Check whether all links in completed pattern exist
+			// * Check whether all links in completed pattern exist and each maps 
+			//   to a unique triple 
+			Set<Triple> triples = new LinkedHashSet<>();
 			for(DTLink<Integer, Integer> link : pattern.links())
 			{
 				int s = link.from().label(), p = link.tag(), o = link.to().label();
@@ -285,8 +295,24 @@ public abstract class Find
 				if (o < 0)
 					o = candidates.get(o).iterator().next();
 				
-				if(graph.find(s, p, o).isEmpty())
+				Set<Triple> res = graph.find(s, p, o);
+				if(res.isEmpty())
+				{
 					return false;
+				} else
+				{
+					assert res.size() == 1;
+					Triple triple = res.iterator().next();
+					if(triples.contains(triple))
+					{
+						return false; // triple already matched (we can probably
+						              // speed things up by eliminating these
+						              // earlier)
+					}
+					
+					triples.add(triple);
+				}
+					
 			}
 			
 			return true;

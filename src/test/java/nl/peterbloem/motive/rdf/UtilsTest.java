@@ -221,4 +221,38 @@ public class UtilsTest
 		
 	}
 	
+	@Test
+	public void testValid()
+	{
+		{
+			// digraph {-2 -> -3 [label=0]; -2 -> -1 [label=1]}
+
+    		DTGraph<Integer, Integer> graph = new MapDTGraph<>();
+    		DTNode<Integer, Integer> m1 = graph.add(-1),
+    		                         m2 = graph.add(-2),
+    		                         m3 = graph.add(-3);
+    		
+    		m2.connect(m3, 0);
+    		m2.connect(m1, 1);
+    		
+    		System.out.println(graph);
+    
+    		assertTrue(Utils.valid(graph));
+		}
+		{
+			// digraph {-2 -> -3 [label=-4]; -2 -> -1 [label=1]}
+    		DTGraph<Integer, Integer> graph = new MapDTGraph<>();
+    		DTNode<Integer, Integer> m1 = graph.add(-1),
+    		                         m2 = graph.add(-2),
+    		                         m3 = graph.add(-3);
+    		
+    		m2.connect(m3, -4);
+    		m2.connect(m1, 1);
+    		
+    		System.out.println(graph);
+    
+    		assertTrue(Utils.valid(graph));
+		}
+	}
+	
 }

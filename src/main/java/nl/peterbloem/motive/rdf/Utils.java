@@ -3,6 +3,7 @@ package nl.peterbloem.motive.rdf;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static nl.peterbloem.kit.Functions.choose;
+import static nl.peterbloem.kit.Functions.max;
 import static nl.peterbloem.kit.Functions.min;
 import static nl.peterbloem.kit.Functions.natural;
 import static nl.peterbloem.kit.Series.series;
@@ -24,6 +25,7 @@ import java.util.Set;
 import org.eclipse.collections.impl.lazy.parallel.set.sorted.SynchronizedParallelSortedSetIterable;
 import org.nodes.DTGraph;
 import org.nodes.DTLink;
+import org.nodes.Graphs;
 import org.nodes.MapDTGraph;
 
 import com.google.common.base.Function;
@@ -39,6 +41,7 @@ public abstract class Utils
 	
 	
 	/**
+	 * Number of nodes with variable labels.
 	 * @param pattern
 	 * @return
 	 */
@@ -49,6 +52,20 @@ public abstract class Utils
 			if(label < 0)
 				numVarLabels ++;
 		return numVarLabels;
+	}
+	
+	public static int numVarTags(DTGraph<Integer, Integer> pattern)
+	{
+		int numVarTags = 0;
+		for(int tag : pattern.tags())
+			if(tag < 0)
+				numVarTags++;
+		return numVarTags;
+	}
+	
+	public static int numVariables(DTGraph<Integer, Integer> pattern)
+	{
+		return numVarLabels(pattern) + numVarTags(pattern);
 	}
 
 	/**
@@ -315,13 +332,15 @@ public abstract class Utils
 
 	/**
 	 * Generates instantiated triples of a pattern 
+	 * 
+	 * NOTE: Assumes distinct labels for node and link variables
 	 */
 	public static List<Triple> triples(DTGraph<Integer, Integer> pattern, List<Integer> values)
 	{	
+		
 		List<Triple> result = new ArrayList<>((int)pattern.numLinks());
 		
-		int numVarLabels = numVarLabels(pattern);
-		assert values.size() == numVarLabels;
+		assert values.size() == numVariables(pattern);
 				
 		for(DTLink<Integer, Integer> link : pattern.links())
 		{
@@ -334,7 +353,7 @@ public abstract class Utils
 			if(object < 0)
 				object = values.get(-object - 1);
 			if(predicate < 0)
-				predicate = values.get(numVarLabels  - predicate - 1);
+				predicate = values.get(-predicate - 1);
 			 			
 			result.add(new Triple(subject, predicate, object));
 		}
@@ -342,5 +361,94 @@ public abstract class Utils
 		return result;
 	}
 	
+	/**
+	 * Checks whether a given patter has valid variable tags and labels. That is
+	 * all negative tags and labels should be contiguous, and variable tags
+	 * should be smaller than variable labels.
+	 * 
+	 * The variable nodes should start at -1.
+	 */
+	public static boolean valid(DTGraph<Integer, Integer> pattern)
+	{
+		if(! Graphs.connected(pattern))
+			return false;
+		
+		Set<Integer> varNodes = new LinkedHashSet<>();
+		Set<Integer> varTags = new LinkedHashSet<>();
+		
+		for(DTLink<Integer, Integer> link : pattern.links())
+		{
+			int subject = link.from().label();
+			int object = link.to().label();
+			int predicate = link.tag();
+			
+			if(subject < 0)
+				varNodes.add(subject);
+			if(object < 0)
+				varNodes.add(object);
+			if(predicate < 0)
+				varTags.add(predicate);
+		}
+		
+		if((! varNodes.isEmpty()) && max(varNodes) != -1)
+			return false;
+		
+		if(! isContiguous(varNodes))
+			return false;
+	
+		if(! isContiguous(varTags))
+			return false;
+		
+		if(!(varNodes.isEmpty() || varTags.isEmpty()))
+			if(max(varTags) != min(varNodes) - 1)
+				return false;
+				
+		if(! varNodes.isEmpty())
+		{
+    		int minNode = Functions.min(varNodes);
+    		
+    		for(int varTag : varTags)
+    			if(varTag >= minNode)
+    				return false;
+		} else if(! varTags.isEmpty())
+		{
+			if(max(varTags) != -1)
+				return false;
+		}
+		
+		return true;
+	}
+	
+	private static boolean isContiguous(Collection<Integer> ints)
+	{
+		if(ints.isEmpty())
+			return true;
+		
+		int min = min(ints);
+		int max = max(ints);
+				
+		for(int i : series(min, max))
+			if(! ints.contains(i))
+				return false;
+		
+		return true;
+	}
+
+
+	/**
+	 * Generates instantiated triples of a pattern for all values. If the values
+	 * generate overlapping matches, the resulting list contains their triples
+	 * multiple times. 
+	 * 
+	 */
+	public static List<Triple> allTriples(DTGraph<Integer, Integer> pattern, List<List<Integer>> values)
+	{	
+		List<Triple> triples = new ArrayList<Triple>();
+		for(int i : series(values.size()))
+			triples.addAll(triples(pattern, values.get(i)));
+		
+		return triples;
+	}
+
 	
 }

@@ -1466,7 +1466,7 @@ public class KGraph implements
 	}
 	
 	/**
-	 * Turn a pattern for a KGraph into a string-based pattern. PNonegative labels 
+	 * Turn a pattern for a KGraph into a string-based pattern. Nonegative labels 
 	 * and tags are replaced by their original IRI, negative ones are replaced 
 	 * by "?ni" for nodes, and "?pi" for predicates (with i the index of the variable). 
 	 * 

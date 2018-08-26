@@ -50,13 +50,13 @@ public class MotifCode
 	public static double codelength(
 			List<List<Integer>> degrees, 
 			DTGraph<Integer, Integer> pattern, List<List<Integer>> values, boolean fastPY)
-	{		
+	{	
 		// * number of links in the graph
 		long m = 0;
 		for(int degree : degrees.get(0))
 			m += degree;
 		
-		//System.out.println("Summed degree sequence: " + toc());
+		// System.out.println("Summed degree sequence: " + toc());
 		
 		FrequencyModel<String> fm = new FrequencyModel<String>();
 				
@@ -87,7 +87,7 @@ public class MotifCode
 				new SparseList(degrees.get(2).size()));
 		
 		// - collect the triples described by the instances
-		List<Triple> triples = Sampler.allTriples(pattern, values);
+		List<Triple> triples = Utils.allTriples(pattern, values);
 		
 		//System.out.println("Collected triples: " + toc());
 		// System.out.println(values);
@@ -104,12 +104,12 @@ public class MotifCode
 		// System.out.println(degsub);
 		//System.out.println("Computed new degree sequence: " + toc());
 		
-		degrees = asList(
+		List<List<Integer>> degTemplate = asList(
 				minus(degrees.get(0), degsub.get(0)),
 				minus(degrees.get(1), degsub.get(1)),
 				minus(degrees.get(2), degsub.get(2)));
 		
-		fm.add("template", EdgeListModel.codelength(degrees, fastPY ? Prior.COMPLETE_FAST : Prior.COMPLETE));
+		fm.add("template", EdgeListModel.codelength(degTemplate, fastPY ? Prior.COMPLETE_FAST : Prior.COMPLETE));
 		
 		//System.out.println("Computed template bits: " + toc());
 		
@@ -138,21 +138,22 @@ public class MotifCode
 				c++;
 			}
 		
-		//System.out.println("Computed label bits (for "+c+" tags): " + toc());
+		// System.out.println("Computed label bits (for "+c+" tags): " + toc());
 		
-		for(int i : series(values.get(0).size()))
-		{
-			List<Integer> column = column(i, values);
-			
-			labelBits += fastPY ? PitmanYorModel.storeIntegers(column) : PitmanYorModel.storeIntegersOpt(column);
-			// System.out.println("Computed variable label bits: " + column.size() + " " + toc());
-		}
-
-		
+		if(! values.isEmpty())
+    		for(int i : series(values.get(0).size()))
+    		{
+    			List<Integer> column = column(i, values);
+    			
+    			labelBits += fastPY ? PitmanYorModel.storeIntegers(column) : PitmanYorModel.storeIntegersOpt(column);
+    			// System.out.println("Computed variable label bits: " + column.size() + " " + toc());
+    		}
 
 		fm.add("labels", labelBits);
 				
 		//System.out.println("Stored labels: " + toc());
+		
+		// fm.print(System.out);
 
 		return fm.total();
 	}
@@ -207,7 +208,7 @@ public class MotifCode
 			DTGraph<Integer, Integer> pattern = patterns.get(j);
 			List<List<Integer>> patternValues = values.get(j);
 			
-    		triples.addAll(Sampler.allTriples(pattern, patternValues));
+    		triples.addAll(Utils.allTriples(pattern, patternValues));
 		}
 		
 		assert(triples.size() == new HashSet<>(triples).size());
