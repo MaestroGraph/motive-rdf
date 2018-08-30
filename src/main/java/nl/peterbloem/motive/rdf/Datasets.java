@@ -5,6 +5,7 @@ import static nl.peterbloem.kit.Series.series;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.nodes.data.Data;
@@ -61,6 +62,43 @@ public class Datasets
 			
 			triples.add(Triple.t(node, 0, yes));
 			triples.add(Triple.t(node, 1, no));
+		}
+		
+		KGraph g = new KGraph(triples);
+		
+		for(KNode node : g.nodes())
+			labels.add(""+node.label());
+		
+		for(int tag : g.tags())
+			tags.add(""+tag);
+		
+		return g;
+	}
+	public static KGraph test2(int middle)
+	{
+		return test2(middle, new ArrayList<String>(), new ArrayList<String>());
+	}
+	
+	public static KGraph test2(int middle, List<String> labels, List<String> tags)
+	{
+		
+		List<Triple> triples = new ArrayList<Triple>();
+		int yes = 0, no = 1; 
+	
+		List<Integer> n2s = new ArrayList<>(series(middle+2, 2*middle+2));
+		Collections.shuffle(n2s);
+		
+		for(int i : series(middle))
+		{
+			int node1 = i + 2;
+			int node2 = n2s.get(i);
+//			node.connect(Global.random().nextBoolean() ? yes : no, 0);
+//			node.connect(Global.random().nextBoolean() ? yes : no, 1);
+//			node.connect(Global.random().nextBoolean() ? yes : no, 2);
+			
+			triples.add(Triple.t(node1, 0, yes));
+			triples.add(Triple.t(node1, 2, node2));
+			triples.add(Triple.t(node2, 1, no));
 		}
 		
 		KGraph g = new KGraph(triples);

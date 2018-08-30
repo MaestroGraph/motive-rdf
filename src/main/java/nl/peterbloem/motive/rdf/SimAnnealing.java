@@ -60,7 +60,9 @@ public class SimAnnealing
 	
 	private double alpha = 0.9;
 	
-	private Map<DTGraph<Integer, Integer>, Double> scores = new LinkedHashMap<>();
+	private Map<DTGraph<Integer, Integer>, Double>  scores = new LinkedHashMap<>();
+	private Map<DTGraph<Integer, Integer>, Integer> frequencies = new LinkedHashMap<>();
+
 	
 	private KGraph graph;
 	List<List<Integer>> degrees;
@@ -86,6 +88,7 @@ public class SimAnnealing
 		
 		pattern = Nauty.canonical(pattern, true);
 		matches = Find.find(pattern, graph, MAX_SEARCH_TIME);
+		frequencies.put(pattern, matches.size());
 		
 		score = score(pattern, matches);
 	}
@@ -108,33 +111,36 @@ public class SimAnnealing
 		while(nwPattern == null)
 		{		
 			Transition trans = Functions.choose(asList(Transition.values()));
-			System.out.println(trans);
-			System.out.println("   " + pattern);
+			// System.out.println(trans);
+			// System.out.println("   " + pattern);
 
 			nwPattern = transition(pattern, trans, matches);
 			
-			System.out.println("   " + nwPattern);
+			// System.out.println("   " + nwPattern);
 		}
 		
 		nwPattern = Nauty.canonical(nwPattern, true);
-		System.out.println("   " + nwPattern);
+		// System.out.println("   " + nwPattern);
 		
 		List<List<Integer>> nwMatches = Find.find(nwPattern, graph, MAX_SEARCH_TIME);
 		if(! Find.TIMED_OUT)
 			assert nwMatches.size() > 0;
 		
 		double nwScore = score(nwPattern, nwMatches);
+		frequencies.put(nwPattern, nwMatches.size());
+
 		
 		if(nwScore < score || Global.random().nextDouble() < alpha)
 		{
-			System.out.println(String.format("step. 	%.3f 	%.3f", score, nwScore));
+			// System.out.println(String.format("step. 	%.3f 	%.3f", score, nwScore));
 			
 			pattern = nwPattern; 
 			score = nwScore;
 			
 			matches = nwMatches;
-		} else
-			System.out.println(String.format("stay. 	%.3f 	%.3f", score, nwScore));
+		} 
+		// else
+		// 		System.out.println(String.format("stay. 	%.3f 	%.3f", score, nwScore));
 
 	}
 
@@ -205,7 +211,6 @@ public class SimAnnealing
 			
 			newPattern.node(s).connect(newPattern.node(o), p);
 			
-			System.out.println(newPattern);
 			assert Utils.valid(newPattern);
 			
 			return newPattern;
@@ -368,7 +373,6 @@ public class SimAnnealing
 					newPattern.node(to), tag);
 			}
 			
-			System.out.println(newPattern);
 			assert Utils.valid(newPattern);
 			
 			return newPattern; 			
@@ -412,7 +416,6 @@ public class SimAnnealing
 					newPattern.get(link.to().index()), tag);
 			}
 			
-			System.out.println(newPattern);
 			assert Utils.valid(newPattern);
 			
 			return newPattern; 
@@ -601,4 +604,45 @@ public class SimAnnealing
 		return newPattern;
 	}
 
+	public List<DTGraph<Integer, Integer>> byScore(int k)
+	{
+		List<DTGraph<Integer, Integer>> motifs = new ArrayList<>(scores.keySet());
+		
+		Comparator<DTGraph<Integer, Integer>> comp = new Comparator<DTGraph<Integer, Integer>>()
+		{
+			@Override
+			public int compare(DTGraph<Integer, Integer> m1, DTGraph<Integer, Integer> m2)
+			{
+				return Double.compare(scores.get(m1), scores.get(m2));
+			}	
+		};
+		
+		return MaxObserver.quickSelect(k, motifs, comp, false);
+	}
+	
+	public double score(DTGraph<Integer, Integer> motif)
+	{
+		return scores.get(motif);
+	}
+	
+	public List<DTGraph<Integer, Integer>> byFrequency(int k)
+	{
+		List<DTGraph<Integer, Integer>> motifs = new ArrayList<>(scores.keySet());
+		
+		Comparator<DTGraph<Integer, Integer>> comp = new Comparator<DTGraph<Integer, Integer>>()
+		{
+			@Override
+			public int compare(DTGraph<Integer, Integer> m1, DTGraph<Integer, Integer> m2)
+			{
+				return - Double.compare(frequencies.get(m1), frequencies.get(m2));
+			}
+		};
+		
+		return MaxObserver.quickSelect(k, motifs, comp, false);
+	}
+
+	public int frequency(DTGraph<Integer, Integer> motif)
+	{
+		return frequencies.get(motif);
+	}
 }

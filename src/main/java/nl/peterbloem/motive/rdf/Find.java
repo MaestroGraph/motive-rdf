@@ -40,7 +40,7 @@ public abstract class Find
 	public static List<List<Integer>> find(DTGraph<Integer, Integer> pattern, KGraph graph)
 	{				
 		Candidates candidates = new Candidates(pattern, graph);
-		
+				
 		candidates.prune();
 		
 		List<List<Integer>> matches = new ArrayList<>();

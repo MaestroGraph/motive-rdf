@@ -1525,4 +1525,26 @@ public class KGraph implements
 		
 		return result;
 	}
+	
+	/**
+	 * Returns a KGraph with the topology of the given directed graph. The nodes
+	 * are assigned unique integer labels, the edge labels are drawn from a 
+	 * uniform random distribution. 
+	 *    
+	 * @param graph
+	 * @param numRelations The number of relations.
+	 * @return
+	 */
+	public static <T> KGraph randomLabels(DGraph<T> graph, int numRelations)
+	{
+		List<Triple> triples = new ArrayList<>();
+		
+		for(DLink<T> link : graph.links())
+			triples.add(t(
+					link.from().index(), 
+					Global.random().nextInt(numRelations), 
+					link.to().index()));
+
+		return new KGraph(triples);
+	}
 }

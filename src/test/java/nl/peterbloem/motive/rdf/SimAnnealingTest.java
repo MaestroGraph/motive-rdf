@@ -35,4 +35,23 @@ public class SimAnnealingTest
 			}
 		}
 	}
+	
+	@Test
+	public void testDogfood()
+	{
+		KGraph graph = Datasets.dogfood();
+		
+		double nullBits = EdgeListModel.codelength(KGraph.degrees(graph), Prior.ML);
+		System.out.println("null model: " + nullBits);
+		
+		{
+			SimAnnealing sim = new SimAnnealing(graph, 0.4);
+			
+			for(int i : series(100000))
+			{
+				System.out.println(String.format("iteration %d", i));
+				sim.iterate();
+			}
+		}
+	}
 }
