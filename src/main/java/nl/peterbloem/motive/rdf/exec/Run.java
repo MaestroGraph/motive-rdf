@@ -26,6 +26,7 @@ import org.nodes.DTGraph;
 import org.nodes.DTNode;
 import org.nodes.MapDTGraph;
 
+import cern.colt.Arrays;
 import nl.peterbloem.kit.Functions;
 import nl.peterbloem.kit.Global;
 import nl.peterbloem.kit.Series;
@@ -39,20 +40,18 @@ import nl.peterbloem.motive.rdf.EdgeListModel.Prior;
 
 public class Run
 {
-	private static final int ITERATIONS = 10000;
-
 	@Option(
 			name="--data",
-			usage="Dataset (dogfood)")
+			usage="Dataset (dogfood, aifb, mutag)")
 	private static String dataset = null;
 		
-	@Option(name="--file", usage="Input file: an HDT file.")
-	private static File file;	
+//	@Option(name="--file", usage="Input file: an HDT file.")
+//	private static File file;	
 	
 	@Option(
 			name="--experiment",
-			usage="Experiment type. OPtions: synthetic (sample a random graph), ...")
-	private static String mode = "synthetic";
+			usage="Experiment type. Options: synthetic (sample a random graph), synth-rep (repeated experiment on random graphs), ...")
+	private static String mode = "synth-rep";
 	
 	@Option(
 			name="--samples",
@@ -60,9 +59,19 @@ public class Run
 	private static int samples = 5000000;
 	
 	@Option(
-			name="--prune-every",
-			usage="Pruning interval.")
-	private static int pruneEvery = 100000;
+			name="--repeats",
+			usage="Number of repeats (synth-rep experiment).")
+	private static int repeats = 250;
+	
+	@Option(
+			name="--max-instance",
+			usage="Maximum number of instances added to the graph (synth-rep experiment).")
+	private static int maxInstances = 25;
+	
+	@Option(
+			name="--max-time",
+			usage="Maximum time allowed for a pattern search.")
+	private static int maxTime = 25;
 	
 	@Option(
 			name="--min-size",
@@ -71,18 +80,28 @@ public class Run
 	
 	@Option(
 			name="--max-size",
-			usage="Minimum motif size")
+			usage="Maximum motif size")
 	private static int maxSize = 6;
+		
+	@Option(
+			name="--alpha",
+			usage="Search parameter alpha")
+	private static double alpha = 0.5;
 	
 	@Option(
-			name="--retain",
-			usage="Nr of motifs retained (by frequency)")
-	private static int retain = 100;
+			name="--iterations",
+			usage="Nr. of search iterations")
+	private static int iterations = 10000000;
 	
 	@Option(
-			name="--max-vars",
-			usage="Maximum number of variables in a single motif")
-	private static int maxVars = 6;
+			name="--topk",
+			usage="Nr. of motifs to extract.")
+	private static int topK = 50000;
+	
+	@Option(
+			name="--to-csv",
+			usage="Nr. of motifs to write.")
+	private static int toCSV = 50;
 	
 	@Option(name="--fast-py", usage="Use fast PY model (don't optimize the parameters). Much faster computation of compression factors, less effective compresssion.")
 	private static boolean fastPY = false;
@@ -93,6 +112,7 @@ public class Run
 	public static void main(String[] args)
 		throws IOException
 	{
+		Global.info("Starting");
 		Global.randomSeed();
 		
 		Run run = new Run();
@@ -110,6 +130,8 @@ public class Run
 	        
 	        System.exit(1);	
 	    }
+
+    	Global.info(Arrays.toString(args));
     	
     	if(help)
     	{
@@ -120,9 +142,40 @@ public class Run
 		
     	if(mode.toLowerCase().trim().equals("synthetic"))
     	{
-    		new Synthetic().main();
+    		Synthetic syn = new Synthetic();
+    		syn.alpha = alpha;
+    		syn.toCSV = toCSV;
+    		syn.topK  = topK;
+    		syn.iterations = iterations;
+    		syn.maxTime = maxTime;
+    		
+    		syn.main();
+    	} else if(mode.toLowerCase().trim().equals("synth-rep"))
+    	{
+    		SynthRep sr = new SynthRep();
+    		sr.maxInstances  = maxInstances;
+    		sr.maxSearchTime = maxTime;
+    		sr.motifMaxSize  = maxSize;
+    		sr.motifMinSize  = minSize;
+    		sr.repeats       = repeats;
+    		
+    		sr.main();
+    		
+    	} else if(mode.toLowerCase().trim().equals("real-world"))
+    	{
+    		RealWorld rw = new RealWorld();
+    		rw.dataname = dataset;
+    		rw.iterations = iterations;
+    		rw.alpha = alpha;
+    		rw.topK = topK;
+    		rw.maxSearchTime = maxTime;
+    		
+    		rw.main();
+    		
     	} else
     		throw new IllegalArgumentException("Experiment mode %s not recognized.");	
+    	
+    	Global.info("Finished.");
 	}
 
 	

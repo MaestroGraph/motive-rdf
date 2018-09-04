@@ -68,7 +68,7 @@ public abstract class Find
 		return matches;
 	}
 	
-	// Whether the last search times out
+	// * Whether the last search times out
 	public static boolean TIMED_OUT = false;
 	
 	private static void findInner(Candidates candidates, int depth, List<List<Integer>> matches, Long stopTime)

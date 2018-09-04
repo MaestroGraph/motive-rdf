@@ -16,6 +16,7 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.AbstractCollection;
 import java.util.AbstractList;
 import java.util.AbstractSet;
@@ -1210,14 +1211,24 @@ public class KGraph implements
 	public static KGraph loadHDT(File file, List<String> nodes, List<String> relations) 
 			throws IOException
 	{
+		InputStream instr = 
+				file.getName().endsWith(".gz") ?
+			    new BufferedInputStream(new GZIPInputStream(new FileInputStream(file))) :
+				new BufferedInputStream(new FileInputStream(file));
+			    
+		return loadHDT(instr, nodes, relations); 
+	}
+	
+	public static KGraph loadHDT(InputStream instr, List<String> nodes, List<String> relations) 
+			throws IOException
+	{
+		instr = new BufferedInputStream(instr);
+		
 		int nextTag = 0; 
 		
 		Map<String, Integer> nodeMap = new HashMap<>(), relationMap = new HashMap<>();
 		
-		HDT hdt = HDTManager.loadIndexedHDT(
-				file.getName().endsWith(".gz")?
-			    new BufferedInputStream(new GZIPInputStream(new FileInputStream(file))) :
-				new BufferedInputStream(new FileInputStream(file)), null);
+		HDT hdt = HDTManager.loadIndexedHDT(instr, null);
 	
 		nodes.clear();
 		relations.clear();

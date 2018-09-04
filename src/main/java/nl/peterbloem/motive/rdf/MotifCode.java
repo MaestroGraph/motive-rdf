@@ -117,19 +117,14 @@ public class MotifCode
 				minus(degrees.get(1), degsub.get(1)),
 				minus(degrees.get(2), degsub.get(2)));
 			
-		System.out.println("LABELS.");
 		fm.add("template", EdgeListModel.codelength(degTemplate, fastPY ? Prior.COMPLETE_FAST : Prior.COMPLETE));
-		System.out.println("DONE.");
 		
-		System.out.println("LABELS.");
 		// fm.add("labels", matchesCodelength(values, pattern, fastPY));
-		fm.add("labels", matchesCodelengthAlt(values, pattern, n, r));
-		System.out.println("DONE.");
-
+		fm.add("labels", matchesCodelengthAlt(values, pattern, n, r, fastPY));
 				
 		//System.out.println("Stored labels: " + toc());
 		
-		fm.print(System.out);
+		// fm.print(System.out);
 
 		return fm.total();
 	}
@@ -199,12 +194,14 @@ public class MotifCode
 	 * @param r Relations in the graph
 	 * @return
 	 */
-	public static double matchesCodelengthAlt(List<List<Integer>> values, DTGraph<Integer, Integer> pattern, int n, int r)
+	public static double matchesCodelengthAlt(List<List<Integer>> values, DTGraph<Integer, Integer> pattern, int n, int r, boolean fastPY)
 	{
-
 		Map<Integer, SparseList> degrees = patternDegrees(values, pattern, n, r);
 		
-		double degreeBits= patternDegreesCodelength(degrees);
+		double degreeBits = patternDegreesCodelength(degrees, fastPY);
+		
+		if(values.isEmpty())
+			return degreeBits;
 		
 		// number of links in the graph
 		long k = values.size();
@@ -228,14 +225,13 @@ public class MotifCode
 	 * @param r
 	 * @return
 	 */
-	public static double patternDegreesCodelength(Map<Integer, SparseList> degrees)
+	public static double patternDegreesCodelength(Map<Integer, SparseList> degrees, boolean fastPY)
 	{
-		
 		double bits = 0.0;
 		
 		// * Store the sequences using the PY model
 		for(SparseList sequence : degrees.values())
-			bits += PitmanYorModel.storeIntegersOpt(sequence);
+			bits += fastPY ? PitmanYorModel.storeIntegers(sequence) : PitmanYorModel.storeIntegersOpt(sequence);
 		
 		return bits;	
 	}

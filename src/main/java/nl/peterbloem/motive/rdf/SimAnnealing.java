@@ -44,7 +44,7 @@ import nl.peterbloem.motive.rdf.EdgeListModel.Prior;
 public class SimAnnealing
 {
 	// maximum time allowed to search for pattern matches
-	public static final int MAX_SEARCH_TIME = 10;
+	public int maxSearchTime = 5;
 	// maximum size of pattern
 	public static final int MAX_PATTERN_SIZE = 10;
 	
@@ -58,11 +58,30 @@ public class SimAnnealing
 		COUPLE
 	};
 	
+	public static List<Transition> transitions = asList(
+			Transition.EXTEND, 
+			Transition.MAKE_NODE_VAR,
+			Transition.MAKE_LINK_VAR,
+			Transition.MAKE_NODE_CONST,
+			Transition.MAKE_LINK_CONST,
+			Transition.RM_EDGE,
+			Transition.COUPLE);
+	
+	public static List<Double> tWeights = asList(
+			0.1, // EXTEND,         
+			3.0, // MAKE_NODE_VAR,  
+			3.0, // MAKE_LINK_VAR,  
+			2.0, // MAKE_NODE_CONST,
+			2.0, // MAKE_LINK_CONST,
+			3.0, // RM_EDGE,        
+			1.0  // COUPLE        
+			); 
+
+	
 	private double alpha = 0.9;
 	
 	private Map<DTGraph<Integer, Integer>, Double>  scores = new LinkedHashMap<>();
 	private Map<DTGraph<Integer, Integer>, Integer> frequencies = new LinkedHashMap<>();
-
 	
 	private KGraph graph;
 	List<List<Integer>> degrees;
@@ -71,10 +90,21 @@ public class SimAnnealing
 	private List<List<Integer>> matches;
 	public double score;
 	
+	/**
+	 * 
+	 * @param graph
+	 * @param alpha Probability of transitioning if the next state is worse than the current.
+	 */
 	public SimAnnealing(KGraph graph, double alpha)
+	{
+		this(graph, alpha, 10);
+	}
+		
+	public SimAnnealing(KGraph graph, double alpha, int maxSearchTime)
 	{
 		this.graph = graph;
 		this.alpha = alpha;
+		this.maxSearchTime = maxSearchTime;
 		
 		degrees = KGraph.degrees(graph);
 	
@@ -87,7 +117,7 @@ public class SimAnnealing
 		a.connect(b, start.predicate());
 		
 		pattern = Nauty.canonical(pattern, true);
-		matches = Find.find(pattern, graph, MAX_SEARCH_TIME);
+		matches = Find.find(pattern, graph, this.maxSearchTime);
 		frequencies.put(pattern, matches.size());
 		
 		score = score(pattern, matches);
@@ -98,7 +128,7 @@ public class SimAnnealing
 		if(!scores.containsKey(pattern))
 		{			
 			matches = MotifCode.prune(pattern, matches);
-			scores.put(pattern, MotifCode.codelength(degrees, pattern, matches));
+			scores.put(pattern, MotifCode.codelength(degrees, pattern, matches, true));
 		}
 		
 		return scores.get(pattern);
@@ -110,7 +140,8 @@ public class SimAnnealing
 		DTGraph<Integer, Integer> nwPattern = null;
 		while(nwPattern == null)
 		{		
-			Transition trans = Functions.choose(asList(Transition.values()));
+			int ind = Functions.choose(tWeights, Functions.sum(tWeights));
+			Transition trans = transitions.get(ind);
 			// System.out.println(trans);
 			// System.out.println("   " + pattern);
 
@@ -122,14 +153,13 @@ public class SimAnnealing
 		nwPattern = Nauty.canonical(nwPattern, true);
 		// System.out.println("   " + nwPattern);
 		
-		List<List<Integer>> nwMatches = Find.find(nwPattern, graph, MAX_SEARCH_TIME);
+		List<List<Integer>> nwMatches = Find.find(nwPattern, graph, this.maxSearchTime);
 		if(! Find.TIMED_OUT)
 			assert nwMatches.size() > 0;
 		
 		double nwScore = score(nwPattern, nwMatches);
 		frequencies.put(nwPattern, nwMatches.size());
 
-		
 		if(nwScore < score || Global.random().nextDouble() < alpha)
 		{
 			// System.out.println(String.format("step. 	%.3f 	%.3f", score, nwScore));
@@ -617,7 +647,10 @@ public class SimAnnealing
 			}	
 		};
 		
-		return MaxObserver.quickSelect(k, motifs, comp, false);
+		List<DTGraph<Integer, Integer>> result = MaxObserver.quickSelect(k, motifs, comp, false);
+		Collections.sort(result, comp);
+		
+		return result;
 	}
 	
 	public double score(DTGraph<Integer, Integer> motif)
@@ -638,11 +671,24 @@ public class SimAnnealing
 			}
 		};
 		
-		return MaxObserver.quickSelect(k, motifs, comp, false);
+		List<DTGraph<Integer, Integer>> result = MaxObserver.quickSelect(k, motifs, comp, false);
+		Collections.sort(result, comp);
+		
+		return result;
 	}
 
 	public int frequency(DTGraph<Integer, Integer> motif)
 	{
 		return frequencies.get(motif);
+	}
+	
+	public Map<DTGraph<Integer, Integer>, Double> scores()
+	{
+		return Collections.unmodifiableMap(scores);
+	}
+	
+	public Map<DTGraph<Integer, Integer>, Integer> frequencies()
+	{
+		return Collections.unmodifiableMap(frequencies);
 	}
 }

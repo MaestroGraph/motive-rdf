@@ -4,13 +4,14 @@ import static nl.peterbloem.kit.Series.series;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import org.nodes.data.Data;
-import org.nodes.data.Examples;
 
+import nl.peterbloem.kit.FileIO;
 import nl.peterbloem.kit.Global;
 import nl.peterbloem.kit.Series;
 import nl.peterbloem.motive.rdf.KGraph.KNode;
@@ -25,16 +26,52 @@ public class Datasets
 	
 	public static KGraph dogfood(List<String> labels, List<String> tags)
 	{
-		ClassLoader classLoader = Examples.class.getClassLoader();
-		File file = new File(classLoader.getResource("data/swdf-2012-11-28.hdt").getFile());
+		return getGraph("data/swdf-2012-11-28.hdt", labels, tags);
+	}
+	
+	public static KGraph getGraph(String res, List<String> labels, List<String> tags)
+	{
+		ClassLoader classLoader = Datasets.class.getClassLoader();
 		
+		File file = new File(classLoader.getResource(res).getFile());
+		InputStream instr = null;
+		
+		if(!file.exists())
+		{
+			file = null;
+			instr = classLoader.getResourceAsStream(res);
+		}
+				
 		try
 		{
-			return KGraph.loadHDT(file, labels, tags);
+			if(instr == null)
+				return KGraph.loadHDT(file, labels, tags);
+			else 
+				return KGraph.loadHDT(instr, labels, tags);
 		} catch (IOException e)
 		{
-			throw new RuntimeException("Could not load the file for the Semantic Web dogfood graph from the classpath.", e);
+			throw new RuntimeException("Could not load the file or JAR resource for the Semantic Web dogfood graph from the classpath.", e);
 		}
+	}
+	
+	public static KGraph aifb()
+	{
+		return aifb(new ArrayList<String>(), new ArrayList<String>());
+	}
+	
+	public static KGraph aifb(List<String> labels, List<String> tags)
+	{
+		return getGraph("data/aifb.complete.hdt", labels, tags);
+	}
+	
+	public static KGraph mutag()
+	{
+		return mutag(new ArrayList<String>(), new ArrayList<String>());
+	}
+	
+	public static KGraph mutag(List<String> labels, List<String> tags)
+	{
+		return getGraph("data/mutag.complete.hdt", labels, tags);
 	}
 	
 	public static KGraph test()

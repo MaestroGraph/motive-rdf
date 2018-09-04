@@ -15,14 +15,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.nodes.DNode;
 import org.nodes.DTGraph;
 import org.nodes.DTLink;
 import org.nodes.DTNode;
 import org.nodes.MapDTGraph;
 import org.nodes.Node;
 import org.nodes.TGraph;
-import org.openrdf.sail.rdbms.algebra.NumberValue;
 
 import nl.peterbloem.kit.Global;
 import nl.peterbloem.kit.Order;
