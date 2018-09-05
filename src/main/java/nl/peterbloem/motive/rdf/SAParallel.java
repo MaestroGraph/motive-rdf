@@ -26,6 +26,10 @@ public class SAParallel
 	private int maxTime; 
 	private double alpha;
 	
+	// * how many motifs to register per thread
+	// TODO: make parameter
+	private int register = 1000;
+	
 	private KGraph graph;
 	
 	private List<SARun> annealers = new ArrayList<>();
@@ -39,7 +43,7 @@ public class SAParallel
 		this(graph, totalIterations, alpha, maxTime, Runtime.getRuntime().availableProcessors());
 	}
 	
-	public SAParallel(KGraph graph,int totalIterations, double alpha, int maxTime, int numThreads)
+	public SAParallel(KGraph graph, int totalIterations, double alpha, int maxTime, int numThreads)
 	{
 		this.graph = graph;
 		this.alpha = alpha;
@@ -81,7 +85,7 @@ public class SAParallel
 	
 	private synchronized void register(SimAnnealing search)
 	{
-		for(DTGraph<Integer, Integer> motif : search.scores().keySet())
+		for(DTGraph<Integer, Integer> motif : search.byScore(register))
 		{
 			double score = search.score(motif);
 			int freq = search.frequency(motif);

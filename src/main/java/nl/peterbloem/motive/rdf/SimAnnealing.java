@@ -647,8 +647,12 @@ public class SimAnnealing
 			}	
 		};
 		
-		List<DTGraph<Integer, Integer>> result = MaxObserver.quickSelect(k, motifs, comp, false);
-		Collections.sort(result, comp);
+		List<DTGraph<Integer, Integer>> result;
+		if(k >= motifs.size())
+			result = motifs;
+		else
+			result = MaxObserver.quickSelect(k, motifs, comp, false);
+				Collections.sort(result, comp);
 		
 		return result;
 	}
@@ -671,8 +675,12 @@ public class SimAnnealing
 			}
 		};
 		
-		List<DTGraph<Integer, Integer>> result = MaxObserver.quickSelect(k, motifs, comp, false);
-		Collections.sort(result, comp);
+		List<DTGraph<Integer, Integer>> result;
+		if(k >= motifs.size())
+			result = motifs;
+		else
+			result = MaxObserver.quickSelect(k, motifs, comp, false);
+				Collections.sort(result, comp);
 		
 		return result;
 	}

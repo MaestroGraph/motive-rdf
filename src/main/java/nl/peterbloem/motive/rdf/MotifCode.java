@@ -82,6 +82,14 @@ public class MotifCode
 		
 		patternBits += EdgeListModel.codelength(patternDegrees, Prior.COMPLETE);
 		
+		List<Integer> labels = new ArrayList<>();
+		for(DTNode<Integer, Integer> node : pattern.nodes())
+			labels.add(node.label());
+		for(DTLink<Integer, Integer> link : pattern.links())
+			labels.add(link.tag());
+
+		patternBits += PitmanYorModel.storeIntegers(labels);
+		
 		fm.add("pattern", patternBits);
 		
 		//System.out.println("Computed pattern size: " + toc());
