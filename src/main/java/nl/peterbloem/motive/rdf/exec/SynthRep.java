@@ -44,7 +44,7 @@ public class SynthRep
 	public int repeats = 20;
 
 	// TODO: Dimension based on AIFB, Mutag and dogfood
-	public int[] sizes = new int[]{8285, 23664, 7611};
+	public int[] sizes = new int[]{8285, 23644, 7611};
 	public int[] numsLinks = new int[]{29226, 74567, 242256};
 	public int[] numsRelations = new int[]{47, 24, 170};
 
@@ -52,6 +52,8 @@ public class SynthRep
 				
 	public int motifMinSize = 3;
 	public int motifMaxSize = 8;
+	
+	public int numThreads;
 	
 	public Vector<List<? extends Number>> results = new Vector<>();
 	
@@ -66,7 +68,7 @@ public class SynthRep
 		Global.info("Starting.");
 		Global.randomSeed();
 		
-		ExecutorService exec = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+		ExecutorService exec = Executors.newFixedThreadPool(numThreads);
 		
 		for(int i : series(numsLinks.length))
 			for(int inst : series(maxInstances))

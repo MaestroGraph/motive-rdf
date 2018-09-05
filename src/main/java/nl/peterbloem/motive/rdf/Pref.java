@@ -21,7 +21,23 @@ public class Pref
 		prefixes.put("gv", "http://geovocab.org/geometry#");
 		prefixes.put("og", "http://www.opengis.net/rdf#");
 		prefixes.put("lgd", "http://linkedgeodata.org/ontology/");
-		
+		prefixes.put("swc", "http://data.semanticweb.org/ns/swc/ontology#");
+		prefixes.put("dsw", "http://data.semanticweb.org/");
+		prefixes.put("vu", "http://www.cs.vu.nl/");
+		prefixes.put("skos", "http://www.w3.org/2004/02/skos/core#");
+		prefixes.put("geo", "http://www.w3.org/2003/01/geo/wgs84_pos#");
+		prefixes.put("dct", "http://purl.org/dc/terms/");
+		prefixes.put("ical", "http://www.w3.org/2002/12/cal/ical");
+		prefixes.put("bibo", "http://purl.org/ontology/bibo/");
+		prefixes.put("aifb", "http://www.aifb.uni-karlsruhe.de");
+		prefixes.put("xmls", "http://www.w3.org/2001/XMLSchema/");
+		prefixes.put("mtg", "http://dl-learner.org/carcinogenesis");
+//		prefixes.put("lgd", "http://linkedgeodata.org/ontology/");
+//		prefixes.put("lgd", "http://linkedgeodata.org/ontology/");
+//		prefixes.put("lgd", "http://linkedgeodata.org/ontology/");
+//		prefixes.put("lgd", "http://linkedgeodata.org/ontology/");
+//		prefixes.put("lgd", "http://linkedgeodata.org/ontology/");
+
 		for(String key : prefixes.keySet())
 			inverse.put(prefixes.get(key), key);
 	}

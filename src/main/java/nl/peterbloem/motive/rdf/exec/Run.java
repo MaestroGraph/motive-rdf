@@ -61,7 +61,12 @@ public class Run
 	@Option(
 			name="--repeats",
 			usage="Number of repeats (synth-rep experiment).")
-	private static int repeats = 250;
+	private static int repeats = 25;
+	
+	@Option(
+			name="--num-threads",
+			usage="Number of threads running concurrently (synth-rep experiment).")
+	private static int numThreads = 32;
 	
 	@Option(
 			name="--max-instance",
@@ -153,6 +158,7 @@ public class Run
     	} else if(mode.toLowerCase().trim().equals("synth-rep"))
     	{
     		SynthRep sr = new SynthRep();
+    		sr.numThreads    = numThreads;
     		sr.maxInstances  = maxInstances;
     		sr.maxSearchTime = maxTime;
     		sr.motifMaxSize  = maxSize;

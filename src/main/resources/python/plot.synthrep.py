@@ -11,9 +11,6 @@ import json, sys
 from io import StringIO, BytesIO
 from PIL import Image
 
-# How many motifs to plot
-NUMPLOT = 4
-
 RED = 'darkred'
 G1 = 'lightgrey'
 G2 = 'silver'
@@ -53,7 +50,9 @@ ni = 3 # len(nums_instances)
 raw = np.genfromtxt('synthrep.csv', delimiter=',')
 (numexperiments, width) = raw.shape
 
-sizes = [100, 1000, 2000]
+sizes = [7611, 8285, 23664] # TODO: FIX after final run
+linksizes = [242256, 29226, 74567]
+relsizes  = [170, 47, 24]
 
 arrays = {}
 for size in sizes:
@@ -63,10 +62,14 @@ fig, axes = plt.subplots(3, 1, sharex=True, squeeze=True, figsize=(16,7))
 
 ### 1) Plot the factors
 
+split = 20
+
 for ax, size in zip(axes, sizes):    
     data = arrays[size]
     
-    paths = ax.scatter(data[:, 3], data[:,4] - data[:,5], c=data[:, 7], cmap='RdYlBu', linewidth=0)
+    hnoise = np.random.randn(*(data[:, 3].shape)) * 0.1 # horizontal jitter
+    paths = ax.scatter(data[:, 3] + hnoise, data[:,4] - data[:,5], c=data[:, 7], s=data[:,7] + 5, cmap='viridis', linewidth=0) # RdYlBu
+
     # plt.colorbar()
     
     yloc = plt.MaxNLocator(5)
@@ -76,12 +79,17 @@ for ax, size in zip(axes, sizes):
 
     ax.spines["right"].set_visible(False)
     ax.spines["top"].set_visible(False)
+    
     ax.spines["bottom"].set_visible(True)
+    ax.spines['bottom'].set_position('zero')
+    
     ax.spines["left"].set_visible(True)
     
-    #ax.get_xaxis().set_tick_params(which='both', top='off', bottom='off')
-    #ax.get_yaxis().set_tick_params(which='both', left='off', right='off')
+    ax.get_xaxis().set_tick_params(which='both', top='off')
+    ax.get_yaxis().set_tick_params(which='both', right='off')
     ax.set_ylabel('log-factor')
+    
+    ax.set_xlim(0, 50)
 
 
 fig.subplots_adjust(right=0.90)
