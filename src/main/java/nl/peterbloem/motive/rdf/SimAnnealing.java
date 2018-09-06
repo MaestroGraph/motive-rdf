@@ -43,6 +43,15 @@ import nl.peterbloem.motive.rdf.EdgeListModel.Prior;
  */
 public class SimAnnealing
 {
+	// * Number of positive motifs encountered
+	public int numPos = 0;
+	public Double nullBits;
+	
+	public int numPos()
+	{
+		return numPos;
+	}
+	
 	// maximum time allowed to search for pattern matches
 	public int maxSearchTime = 5;
 	// maximum size of pattern
@@ -68,7 +77,7 @@ public class SimAnnealing
 			Transition.COUPLE);
 	
 	public static List<Double> tWeights = asList(
-			0.1, // EXTEND,         
+			2.0, // EXTEND,         
 			3.0, // MAKE_NODE_VAR,  
 			3.0, // MAKE_LINK_VAR,  
 			2.0, // MAKE_NODE_CONST,
@@ -99,28 +108,47 @@ public class SimAnnealing
 	{
 		this(graph, alpha, 10);
 	}
-		
+	
 	public SimAnnealing(KGraph graph, double alpha, int maxSearchTime)
+	{
+		this(graph, alpha, maxSearchTime, null);
+	}
+		
+	public SimAnnealing(KGraph graph, double alpha, int maxSearchTime, DTGraph<Integer, Integer> startPattern)
+	{
+		this(graph, alpha, maxSearchTime, startPattern, null);
+	}
+	
+	public SimAnnealing(KGraph graph, double alpha, int maxSearchTime, DTGraph<Integer, Integer> startPattern, Double nullBits)
 	{
 		this.graph = graph;
 		this.alpha = alpha;
 		this.maxSearchTime = maxSearchTime;
+		this.nullBits = nullBits;
 		
 		degrees = KGraph.degrees(graph);
 	
-		// - the starting pattern is a random triple with the object made a variable
-		Triple start = Functions.choose(graph.find(null, null, null));
-	
-		pattern = new MapDTGraph<>();
-		DTNode<Integer, Integer> a = pattern.add(start.subject());
-		DTNode<Integer, Integer> b = pattern.add(-1);
-		a.connect(b, start.predicate());
+		if(startPattern != null)
+		{
+			pattern = startPattern;
+		} else 
+		{
+			// - the starting pattern is a random triple with the object made a variable
+			Triple start = Functions.choose(graph.find(null, null, null));
+    		pattern = new MapDTGraph<>();
+    		DTNode<Integer, Integer> a = pattern.add(start.subject());
+    		DTNode<Integer, Integer> b = pattern.add(-1);
+    		a.connect(b, start.predicate());
+		}
 		
 		pattern = Nauty.canonical(pattern, true);
 		matches = Find.find(pattern, graph, this.maxSearchTime);
 		frequencies.put(pattern, matches.size());
 		
 		score = score(pattern, matches);
+				
+		if(nullBits != null && (nullBits - score) > 0)
+			numPos ++;
 	}
 	
 	private double score(DTGraph<Integer, Integer> pattern, List<List<Integer>> matches)
@@ -128,7 +156,12 @@ public class SimAnnealing
 		if(!scores.containsKey(pattern))
 		{			
 			matches = MotifCode.prune(pattern, matches);
-			scores.put(pattern, MotifCode.codelength(degrees, pattern, matches, true));
+			double score = MotifCode.codelength(degrees, pattern, matches, true);
+			
+			if(nullBits != null && (nullBits - score) > 0)
+				numPos ++;
+				
+			scores.put(pattern, score);
 		}
 		
 		return scores.get(pattern);

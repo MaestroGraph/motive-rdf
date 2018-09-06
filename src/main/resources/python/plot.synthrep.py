@@ -50,7 +50,7 @@ ni = 3 # len(nums_instances)
 raw = np.genfromtxt('synthrep.csv', delimiter=',')
 (numexperiments, width) = raw.shape
 
-sizes = [7611, 8285, 23664] # TODO: FIX after final run
+sizes = [7611, 8285, 23644] # TODO: FIX after final run
 linksizes = [242256, 29226, 74567]
 relsizes  = [170, 47, 24]
 
@@ -58,17 +58,19 @@ arrays = {}
 for size in sizes:
     arrays[size] = raw[np.where(raw[:, 0] == size)]
     
-fig, axes = plt.subplots(3, 1, sharex=True, squeeze=True, figsize=(16,7))
+fig, axes = plt.subplots(3, 1, sharex=True, squeeze=True, figsize=(8,9))
 
 ### 1) Plot the factors
 
 split = 20
 
-for ax, size in zip(axes, sizes):    
+for i, (ax, size) in enumerate(zip(axes, sizes)):  
+    
+    ax.set_title('n={}, m={}, r={}'.format(size, linksizes[i], relsizes[i]) ) 
     data = arrays[size]
     
-    hnoise = np.random.randn(*(data[:, 3].shape)) * 0.1 # horizontal jitter
-    paths = ax.scatter(data[:, 3] + hnoise, data[:,4] - data[:,5], c=data[:, 7], s=data[:,7] + 5, cmap='viridis', linewidth=0) # RdYlBu
+    # hnoise = np.random.randn(*(data[:, 3].shape)) * 0.05 # horizontal jitter
+    paths = ax.scatter(data[:, 3], data[:,4] - data[:,5], c=data[:, 7], s=(data[:,7]) ** 0.65 + 5, cmap='viridis', linewidth=0, alpha=0.4) # RdYlBu
 
     # plt.colorbar()
     
@@ -89,12 +91,17 @@ for ax, size in zip(axes, sizes):
     ax.get_yaxis().set_tick_params(which='both', right='off')
     ax.set_ylabel('log-factor')
     
-    ax.set_xlim(0, 50)
+    ax.set_xlim(0, max(data[:, 3]))
 
 
 fig.subplots_adjust(right=0.90)
 cbar_ax = fig.add_axes([0.92, 0.55, 0.02, 0.4])
-fig.colorbar(paths, cax=cbar_ax)
+cbar = fig.colorbar(paths, cax=cbar_ax)
+
+#cbar.solids.set_rasterized(True)
+cbar.solids.set_edgecolor("face")
+cbar.set_alpha(1)
+cbar.draw_all()
 
 axes[-1].set_xlabel('number of motifs added')
 

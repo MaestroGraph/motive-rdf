@@ -20,6 +20,8 @@ import nl.peterbloem.kit.Series;
 
 public class SAParallel
 {
+	private int numPos = 0;
+	private Double nullBits = null;
 	
 	private int itsFinished = 0;
 	private int numThreads; 
@@ -38,17 +40,37 @@ public class SAParallel
 	private Map<DTGraph<Integer, Integer>, Double>  scores = new LinkedHashMap<>();
 	private Map<DTGraph<Integer, Integer>, Integer> frequencies = new LinkedHashMap<>();
 	
+	private DTGraph<Integer, Integer> start;
+	
 	public SAParallel(KGraph graph, int totalIterations, double alpha, int maxTime)
 	{
 		this(graph, totalIterations, alpha, maxTime, Runtime.getRuntime().availableProcessors());
 	}
 	
+	public SAParallel(KGraph graph, int totalIterations, double alpha, int maxTime, DTGraph<Integer, Integer> start)
+	{	
+		this(graph, totalIterations, alpha, maxTime, Runtime.getRuntime().availableProcessors(), start, null);
+	}
+	
+	public SAParallel(KGraph graph, int totalIterations, double alpha, int maxTime, DTGraph<Integer, Integer> start, Double nullBits)
+	{	
+		this(graph, totalIterations, alpha, maxTime, Runtime.getRuntime().availableProcessors(), start, nullBits);
+	}
+
 	public SAParallel(KGraph graph, int totalIterations, double alpha, int maxTime, int numThreads)
 	{
+		this(graph, totalIterations, alpha, maxTime, numThreads, null, null);
+	}
+	
+	public SAParallel(KGraph graph, int totalIterations, double alpha, int maxTime, int numThreads, DTGraph<Integer, Integer> start, Double nullBits)
+	{
+		this.nullBits = nullBits;
+		
 		this.graph = graph;
 		this.alpha = alpha;
 		this.maxTime = maxTime;
 		this.perThread = totalIterations/numThreads;
+		this.start = start;
 		
 		Global.info("Using %d separate processes.", numThreads);
 		
@@ -59,6 +81,9 @@ public class SAParallel
 		exec.shutdown();
 		
 		while(! exec.isTerminated());
+		
+		if(nullBits != null)
+			Global.info("Encountered %d positive patterns.", numPos);
 	}
 	
 	private class SARun implements Runnable
@@ -66,7 +91,7 @@ public class SAParallel
 		@Override
 		public void run()
 		{
-			SimAnnealing search = new SimAnnealing(graph, alpha, maxTime);
+			SimAnnealing search = new SimAnnealing(graph, alpha, maxTime, start, nullBits);
 			
 			for (int i : series(perThread))
 			{
@@ -76,10 +101,10 @@ public class SAParallel
 					Global.info("%d iterations finished.", itsFinished);
 			}
 			
-			Global.info("Finished searching");
 			
 			register(search);
-			
+
+			Global.info("Thread finished searching");
 		}		
 	}
 	
@@ -96,6 +121,9 @@ public class SAParallel
 				frequencies.put(motif, freq);
 			}	
 		}
+		
+		if(nullBits != null)
+			numPos += search.numPos(); 
 	}
 
 

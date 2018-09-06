@@ -86,7 +86,7 @@ public class Synthetic
 	 *  The number of instances to inject (multiple values)
 	 */
 	// public List<Integer> numsInstances = Arrays.asList(0, 10, 100);
-	public int[] numInstances = new int[]{0, 10, 100};
+	public int[] numInstances = new int[]{0, 75, 150};
 	public int focus = 1; // which element from numInstances to sort by
 	
 	public double alpha = 0.5;
@@ -191,7 +191,7 @@ public class Synthetic
 //        
 //        		double patternBits = MotifCode.codelength(KGraph.degrees(data), pattern, matches);
 
-    		SAParallel search = new SAParallel(data, iterations, alpha, maxTime);
+    		SAParallel search = new SAParallel(data, iterations, alpha, maxTime, pattern, nullBits);
     		
     		for(DTGraph<Integer, Integer> motif : search.byScore(topK))
     			observe(motif, ins, nullBits - search.score(motif), search.frequency(motif));
