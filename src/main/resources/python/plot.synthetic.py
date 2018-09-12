@@ -19,12 +19,12 @@ from io import StringIO, BytesIO
 from PIL import Image
 
 # How many motifs to plot
-NUMPLOT = 4
+NUMPLOT = 10
 
 RED = 'darkred'
-G1 = 'lightgrey'
-G2 = 'silver'
-G3 = 'darkgrey'
+G1 = 'grey'
+G2 = 'teal'
+G3 = 'black'
 
 mpl.style.use('classic')
 
@@ -60,13 +60,14 @@ ni = 3 # len(nums_instances)
 raw = n.genfromtxt('scores.csv', delimiter=',')
 (nummotifs, width) = raw.shape
 
+# raw = n.nan_to_num(raw)
+# raw[raw == -2147483648] = 0
 assert nummotifs >= NUMPLOT
 
 frequencies = raw[:, (1, 3, 5)]
-factors = raw[:, (1, 3, 5)]
+factors = raw[:, (0, 2, 4)]
 
-
-fig = p.figure(figsize=(16,7))
+fig = p.figure(figsize=(8,4))
 
 ### 1) Plot the factors
 ax1 = fig.add_axes([0.0 + margin + extra, row3height + row2height + margin, 1.0 - 2.0 * margin- extra, row1height - 2.0 * margin]); 
@@ -79,10 +80,12 @@ for i in range(ni):
     label = u'$k = 0$'
     if i == 1:
         color = G2
-        label = u'$k = 10$'
+        label = u'$k = 75$'
     if i == 2:
         color = G3
-        label = u'$k = 100$'
+        label = u'$k = 150$'
+    
+    print(i, factors[:NUMPLOT, i])
     
     bars = ax1.bar(ind - barwidth/2.0 + i * bw, factors[:NUMPLOT, i], bw, color=color, zorder=1, linewidth=0)
     bars.set_label(label)
@@ -95,9 +98,9 @@ for i in range(ni):
 #         max = n.max(factors[s,i*runs:(i+1)*runs])
 #         ax1.vlines((ind[s] - barwidth/2.0 + (i+0.5) * bw),min, max, colors=RED, linewidths=2, zorder=3)
    
-ax1.set_xlim([0 - pluswidth, nummotifs - 1 + pluswidth])
+ax1.set_xlim([0 - pluswidth, NUMPLOT - 1 + pluswidth])
 
-ax1.hlines(0, - pluswidth, nummotifs - 1 + pluswidth)
+ax1.hlines(0, - pluswidth, NUMPLOT - 1 + pluswidth)
 
 yloc = p.MaxNLocator(7)
 ax1.get_yaxis().set_major_locator(yloc)
@@ -119,7 +122,7 @@ ax1.get_yaxis().set_tick_params(which='both', left='off', right='off')
 # negative grid (white lines over the bars)   
 ticks = ax1.get_yaxis().get_majorticklocs()   
 ticks = n.delete(ticks, n.where(n.logical_and(ticks < 0.00001, ticks > -0.00001)))
-ax1.hlines(ticks, - pluswidth, nummotifs - 1 + pluswidth, color='w', zorder=2)
+ax1.hlines(ticks, - pluswidth, NUMPLOT - 1 + pluswidth, color='w', zorder=2)
 
 ax1.legend()
 ax1.set_ylabel('log-factor (bits)')
@@ -132,11 +135,12 @@ height = row2height - margin
 side = pluswidth - 0.5
 width = (1.0 - 2.0 * margin - extra) / (NUMPLOT + 2.0 * side)
 
-i = 0
 with open('motifs.csv', 'r') as file:    
-    for dotstring in file:
-        if i > NUMPLOT:
+    for i, dotstring in enumerate(file):
+        if i >= NUMPLOT:
             break;
+        
+        print('.')
         
         axsmall = fig.add_axes([margin + extra + side*width + width * i, bottom, width, height])
         axsmall.axis('off')
@@ -148,23 +152,6 @@ with open('motifs.csv', 'r') as file:
         
         im = Image.open(drawn)
         axsmall.imshow(im, interpolation='none')
-                
-#         ng = nwx.number_of_nodes(graph)
-#         
-#         pos = nwx.spring_layout(graph)
-#         nodes = nwx.draw(graph, pos, ax=axsmall, node_size=12)
-#         if nodes != None:
-#             nodes.set_edgecolor(RED)
-#             nodes.set_color(RED)
-#         color = RED if i == sub_index else 'k'
-#         edges = nwx.draw_networkx_edges(graph, pos, alpha=0 if directed else 1, fc=color, edge_color=color)
-#         if nodes == None or ng < motif_size:
-#             (minx, maxx) = axsmall.get_xlim()
-#             ran = maxx - minx
-#             rem = motif_size if (nodes == None) else motif_size - ng
-#             axsmall.scatter((n.arange(rem) * (0.333/rem) + 0.666) * ran + minx, 0 * n.ones(rem), s=12, color=RED)   
-#     
-        i = i + 1
     
 ### 3)  Frequency graph
 
@@ -183,7 +170,7 @@ for i in range(ni):
 
 ax3.get_yaxis().set_tick_params(which='both', direction='out')
 
-ax3.set_xlim([0 - pluswidth, nummotifs - 1 + pluswidth])
+ax3.set_xlim([0 - pluswidth, NUMPLOT - 1 + pluswidth])
 # ax3.set_xlim(lower=0)
 
 # reduce the number of ticks
@@ -202,7 +189,7 @@ ax3.set_ylim([0, ax3.get_ylim()[1]])
 
 ticks = ax3.get_yaxis().get_majorticklocs()   
 ticks = n.delete(ticks, n.where(n.logical_and(ticks < 0.00001, ticks > -0.00001)))
-ax3.hlines(ticks, - pluswidth, nummotifs - 1 + pluswidth, color='w', zorder=2)
+ax3.hlines(ticks, - pluswidth, NUMPLOT - 1 + pluswidth, color='w', zorder=2)
 
 ax3.set_ylabel('freq.')
 

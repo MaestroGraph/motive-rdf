@@ -140,6 +140,8 @@ public class Synthetic
 		
 		Global.info("Sampled pattern: " + pattern);
 		
+		List<KGraph> graphs = new ArrayList<>();
+		
 		for(int ins : series(numInstances.length))
 		{
 			int numI = numInstances[ins];
@@ -181,107 +183,94 @@ public class Synthetic
     		}
     				
     		KGraph data = new KGraph(triples);
+    		graphs.add(data);
+		}
     		
-//    		Global.info(String.format("Sampled data. (%d, %d)", data.size(), data.numLinks()) );
-    		
-    		double nullBits = EdgeListModel.codelength(KGraph.degrees(data), Prior.ML);
-    		
+		// * Perform a search for the focus
+		
+		int ins = numInstances[1];
+		
+		KGraph data = graphs.get(focus);
+		
+    	double null0Bits = EdgeListModel.codelength(KGraph.degrees(graphs.get(0)), Prior.ML);
+    	double null1Bits = EdgeListModel.codelength(KGraph.degrees(data), Prior.ML);
+    	double null2Bits = EdgeListModel.codelength(KGraph.degrees(graphs.get(2)), Prior.ML);
+
+
 //        		List<List<Integer>> matches = Find.find(pattern, data);    		
 //        		matches = MotifCode.prune(pattern, matches);
 //        
 //        		double patternBits = MotifCode.codelength(KGraph.degrees(data), pattern, matches);
 
-    		SAParallel search = new SAParallel(data, iterations, alpha, maxTime, pattern, nullBits);
-    		
-    		for(DTGraph<Integer, Integer> motif : search.byScore(topK))
-    			observe(motif, ins, nullBits - search.score(motif), search.frequency(motif));
-
-		}
+    	SAParallel search = new SAParallel(data, iterations, alpha, maxTime, pattern, null1Bits);
+    	
+  
 		
 		// * Output the results
 		
-		// - Sort the motifs by score for the 10 instances experiment
-		List<DTGraph<Integer, Integer>> motifs = new ArrayList<>(scores.keySet());
-		
-		Collections.sort(motifs, new Comparator<DTGraph<Integer, Integer>>(){
-
-			@Override
-			public int compare(DTGraph<Integer, Integer> m1, DTGraph<Integer, Integer> m2)
-			{
-				Double score1 = scores.get(m1).get(focus);
-				Double score2 = scores.get(m2).get(focus);
-				
-				if(score1 == null) score1 = Double.NEGATIVE_INFINITY;
-				if(score2 == null) score2 = Double.NEGATIVE_INFINITY;
-				
-				return - Double.compare(score1, score2);
-			}
-		});
+		// - Sort the motifs by score for the focus
+		List<DTGraph<Integer, Integer>> motifs = search.byScore(toCSV);
 		
 		// - Print score and frequency for each experiment (6 columns)
 		{
-    		BufferedWriter out = new BufferedWriter(new FileWriter("scores.csv"));
+    		BufferedWriter outMotifs = new BufferedWriter(new FileWriter("motifs.csv"));
+    		BufferedWriter outScores = new BufferedWriter(new FileWriter("scores.csv"));
+    		
     		for(DTGraph<Integer, Integer> motif : motifs.subList(0, toCSV))
     		{
+    			outMotifs.write(makeString(motif) + "\n");
+    			
     			boolean first = true;
     			
-    			for(int ins : series(numInstances.length))
-    			{
-    				Double score     = scores.get(motif).get(ins);
-    				Integer frequency = frequencies.get(motif).get(ins);
-    				
-    				if(score == null)     score = Double.NaN;
-    				if(frequency == null) frequency = Integer.MIN_VALUE;
-    				
-    				if(first)
-    					first = false;
-    				else
-    					out.write(", ");
-    				
-    				out.write(score + ", " + frequency);
-    			}
-    			
-    			out.write("\n");
-    		}
+        		List<List<Integer>> matches0 = Find.find(motif, graphs.get(0), maxTime);    		
+        		matches0 = MotifCode.prune(motif, matches0);
+        
+        		double motif0Bits = MotifCode.codelength(KGraph.degrees(graphs.get(0)), motif, matches0);  
+        		double score0 = null0Bits - motif0Bits;
+        		int frequency0 = matches0.size();
+        		
+        		List<List<Integer>> matches2 = Find.find(motif, graphs.get(2), maxTime);    		
+        		matches2 = MotifCode.prune(motif, matches2);
+        		
+        		double motif2Bits = MotifCode.codelength(KGraph.degrees(graphs.get(2)), motif, matches2);  
+        		double score2 = null2Bits - motif2Bits; 
+        		int frequency2 = matches2.size();
+
+    			double score1     = null1Bits - search.score(motif);
+    			int frequency1    = search.frequency(motif);
     		
-    		out.close();
+    						
+    			outScores.write(score0 + ", " + frequency0 +  ", " + score1 + ", " + frequency1 +  ", " + score2 + ", " + frequency2 +  "\n");
+       		}
+    		
+			outMotifs.close();
+    		outScores.close();
 		}
 		
-		// - Print the dot representation of the graphs
-		{
-    		BufferedWriter out = new BufferedWriter(new FileWriter("motifs.csv"));
-    		for(DTGraph<Integer, Integer> motif : motifs.subList(0, toCSV))
-    		{
-    			out.write(makeString(motif));
-    			out.write("\n");
-    		}
-    		
-    		out.close();
-		}
 	}
 
-	private void observe(DTGraph<Integer, Integer> motif, int i, double score, int frequency)
-	{
-		if(! scores.containsKey(motif))
-		{
-			List<Double> s = new ArrayList<>();
-			for(int n : numInstances)
-				s.add(null);
-			scores.put(motif, s);
-			
-		}
-		if(! frequencies.containsKey(motif))
-		{			
-			List<Integer> s = new ArrayList<>();
-			for(int n : numInstances)
-				s.add(null);
-
-			frequencies.put(motif, s);
-		}
-		
-		scores.get(motif).set(i, score);
-		frequencies.get(motif).set(i, frequency);	
-	}
+//	private void observe(DTGraph<Integer, Integer> motif, int i, double score, int frequency)
+//	{
+//		if(! scores.containsKey(motif))
+//		{
+//			List<Double> s = new ArrayList<>();
+//			for(int n : numInstances)
+//				s.add(null);
+//			scores.put(motif, s);
+//			
+//		}
+//		if(! frequencies.containsKey(motif))
+//		{			
+//			List<Integer> s = new ArrayList<>();
+//			for(int n : numInstances)
+//				s.add(null);
+//
+//			frequencies.put(motif, s);
+//		}
+//		
+//		scores.get(motif).set(i, score);
+//		frequencies.get(motif).set(i, frequency);	
+//	}
 	
 	/**
 	 * Returns a representation of the graph in Dot language format. Adds some 

@@ -58,7 +58,7 @@ arrays = {}
 for size in sizes:
     arrays[size] = raw[np.where(raw[:, 0] == size)]
     
-fig, axes = plt.subplots(3, 1, sharex=True, squeeze=True, figsize=(8,9))
+fig, axes = plt.subplots(3, 1, sharex=True, squeeze=True, figsize=(8,7))
 
 ### 1) Plot the factors
 
@@ -91,7 +91,7 @@ for i, (ax, size) in enumerate(zip(axes, sizes)):
     ax.get_yaxis().set_tick_params(which='both', right='off')
     ax.set_ylabel('log-factor')
     
-    ax.set_xlim(0, max(data[:, 3]))
+    ax.set_xlim(0, max(data[:, 3]+3))
 
 
 fig.subplots_adjust(right=0.90)
