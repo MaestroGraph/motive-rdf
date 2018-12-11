@@ -1,6 +1,7 @@
 package nl.peterbloem.motive.rdf.exec;
 
 import static java.lang.Math.floorMod;
+import static java.lang.String.format;
 import static nl.peterbloem.kit.Functions.exp2;
 import static nl.peterbloem.kit.Functions.tic;
 import static nl.peterbloem.kit.Functions.toc;
@@ -45,6 +46,11 @@ public class Run
 			usage="Dataset (dogfood, aifb, mutag)")
 	private static String dataset = null;
 		
+	@Option(
+			name="--logfile",
+			usage="Query log (for the queries experiment).")
+	private static File logfile = null;
+	
 //	@Option(name="--file", usage="Input file: an HDT file.")
 //	private static File file;	
 	
@@ -177,200 +183,28 @@ public class Run
     		rw.maxSearchTime = maxTime;
     		
     		rw.main();
+    	} else if(mode.toLowerCase().trim().equals("multi"))
+    	{
+    		Multi mlt = new Multi();
+    		mlt.dataname = dataset;
+    		mlt.iterations = iterations;
+    		mlt.alpha = alpha;
+    		mlt.topK = topK;
+    		mlt.maxSearchTime = maxTime;
     		
+    		mlt.main();
+    	} else if(mode.toLowerCase().trim().equals("queries"))
+        {
+    		Queries qs = new Queries();
+    		qs.dataname = dataset;
+    		qs.logfile = logfile;
+    		
+    		qs.main();
+        	
     	} else
-    		throw new IllegalArgumentException("Experiment mode %s not recognized.");	
+    		throw new IllegalArgumentException(format("Experiment mode !! %s not recognized.", mode));	
     	
     	Global.info("Finished.");
 	}
 
-	
-//	public static void multipleMotif(List<String> nodes, List<String> relations, KGraphList data) throws IOException
-//	{
-//		List<List<Integer>> degrees = KGraphList.degrees(data);
-//
-//		double nullBits = EdgeListModel.codelength(degrees, Prior.ML);
-//		
-//		Global.log().info("Size under null model (ML Bound) " +  nullBits);
-//		
-//		Sampler sampler = new Sampler(data, samples, pruneEvery, minSize, maxSize, maxVars);
-//		
-//		Global.log().info("Finished sampling, " + sampler.patterns().size() + " patterns found.");
-//		
-//		List<DTGraph<Integer, Integer>> patterns = new ArrayList<>(sampler.patterns(retain));
-//
-//		List<Double> factors = new ArrayList<>(patterns.size());
-//		
-//		for(DTGraph<Integer, Integer> pattern : patterns)
-//		{
-//			double factor = nullBits - MotifCode.codelength(degrees, pattern, sampler.instances(pattern), fastPY);
-//			factors.add(factor);
-//			Global.log().info(" compression factor: " + factor);
-//		}
-//		
-//		Global.log().info("Finished computing codelengths.");
-//
-//		List<List<List<Integer>>> values = new ArrayList<>(patterns.size());
-//		for(DTGraph<Integer, Integer> pattern : patterns)
-//			values.add(sampler.instances(pattern));
-//	
-//		Functions.sort(factors, Collections.reverseOrder(), patterns, values);
-//
-//		// * MH Algorithm
-//		
-//		// - an ordering of the patterns.
-//		List<Integer> sol = new ArrayList<>(series(patterns.size()));
-//		
-//		//  - limit: the first 'lim' patterns are included
-//		//    (the start state has all patterns with a positive comp. factor included)
-//		int lim = 0;
-//		for(double cl : factors)
-//			if(cl > 0.0)
-//				lim ++;
-//			else
-//				break;
-//		
-//		Global.log().info("Found "+lim+" patterns with a positive compression.");
-//		
-//		List<DTGraph<Integer, Integer>> patSelected = indexList(patterns, sol.subList(0, lim));
-//		List<List<List<Integer>>> valSelected = pruneValues(patSelected, indexList(values, sol.subList(0, lim)));
-//
-//		double codelength = MotifCode.codelength(degrees, patSelected, valSelected, fastPY);
-//		double factor = nullBits - codelength;
-//		
-//		double bestFactor = factor;
-//		List<Integer> bestSol = new ArrayList<>(sol);
-//		int bestLim = lim;
-//		
-//		tic();
-//		for(int i : series(ITERATIONS))
-//		{
-//			// - Transition the solution
-//			int limNew = lim;
-//			limNew += Global.random().nextInt(3) - 1;
-//			limNew = floorMod(limNew, patterns.size() + 1);
-//			
-//			// - we mod with size + 1, because patterns.size() is the maximum 
-//			//   possible value
-//			List<Integer> solNew = new ArrayList<Integer>(sol);
-//			int swapA = Global.random().nextInt(patterns.size());
-//			int swapB = (swapA + 1) % patterns.size();
-//			
-//			int tmp = solNew.get(swapA);
-//			solNew.set(swapA, solNew.get(swapB));
-//			solNew.set(swapB, tmp);
-//			
-//			double ratio, factorNew;
-//			
-//			if(limNew == lim && swapA >= limNew && swapB >= limNew) 
-//			{   // if the swap happens in the ignored part, we know the ratio already
-//				ratio = 1.0;
-//				factorNew = factor; 	
-//			} else 
-//			{
-//    			patSelected = indexList(patterns, solNew.subList(0, limNew));
-//    			valSelected = pruneValues(patSelected, indexList(values, solNew.subList(0, limNew)));
-//    			
-//    			double codelengthNew =  MotifCode.codelength(degrees, patSelected, valSelected, fastPY);
-//
-//    			factorNew = nullBits - codelengthNew;
-//    			ratio = factorNew / factor;	
-//    		}
-//			
-//			if(i % 100 == 0)
-//			{
-//				Global.log().info("it " + i + ": ratio " + ratio + ", lim " + lim + ", current " + factor + ", new " + factorNew  + ", best " + bestFactor);
-//			}
-//			
-//			if(Global.random().nextDouble() < ratio) // transition
-//			{
-//				factor = factorNew;
-//				lim = limNew;
-//				sol = new ArrayList<>(solNew);
-//			}
-//
-//			// * remember the best solution observed
-//			if(factor > bestFactor)
-//			{
-//				bestFactor = factor;
-//				bestLim = lim;
-//				bestSol = new ArrayList<>(sol);
-//			}
-//		}
-//		
-//		Global.log().info("Search finished");
-//
-//		patSelected = indexList(patterns, bestSol.subList(0, bestLim));
-//		valSelected = pruneValues(patSelected, indexList(values, bestSol.subList(0, bestLim)));
-//		
-//		FileWriter motifList = new FileWriter(new File("motifs_multi.csv"));
-//		
-//		for(int i : series(patSelected.size()))
-//		{
-//			DTGraph<Integer, Integer> pattern = patSelected.get(i);
-//			List<List<Integer>> instances = valSelected.get(i);
-//			
-//			String bgp = KGraphList.bgp(KGraphList.recover(pattern, nodes, relations));
-//			motifList.write(i + ", " + instances.size() + ", " + bgp + " \n");
-//			
-//			FileWriter valueOut = 
-//					new FileWriter(new File(String.format("instances_multi.%03d.csv", i)));
-//			
-//			for(List<Integer> vals : instances)
-//			{				
-//				int nvl = numVarLabels(pattern);
-//				
-//				List<Integer> ns = vals.subList(0, nvl);
-//				List<Integer> ts = vals.subList(nvl, vals.size());
-//				
-//				List<String> strs = new ArrayList<>(vals.size());
-//				
-//				try {
-//					strs.addAll(KGraphList.recover(ns, nodes));
-//					strs.addAll(KGraphList.recover(ts, relations));
-//				} catch(Exception e)
-//				{
-//					System.out.println("caught " + e.getMessage());
-//					
-//					System.out.println(vals);
-//					System.out.println(pattern);
-//					System.out.println(nvl);
-//				}
-//								
-//				for(int j : series(strs.size()))
-//				{
-//					if(j != 0)
-//						valueOut.write(", ");
-//					valueOut.write(strs.get(j));
-//				}
-//				valueOut.write("\n");
-//			}
-//			valueOut.close();
-//			
-//			i++;
-//		}
-//		
-//		motifList.close();
-//		
-//		Global.log().info("Experiment finished.");
-//	}
-//
-//	public static <L> List<L> indexList(final List<L> superList, final List<Integer> indices)
-//	{
-//		return new AbstractList<L>(){
-//
-//			@Override
-//			public L get(int index)
-//			{
-//				return superList.get(indices.get(index));
-//			}
-//
-//			@Override
-//			public int size()
-//			{
-//				return indices.size();
-//			}
-//			
-//		};
-//	}
 }

@@ -375,7 +375,9 @@ public class MotifCode
 	 * @param values
 	 * @return
 	 */
-	public static List<List<List<Integer>>> pruneValues(List<DTGraph<Integer, Integer>> patterns, List<List<List<Integer>>> values)
+	public static List<List<List<Integer>>> pruneValues(
+			List<DTGraph<Integer, Integer>> patterns, 
+			List<List<List<Integer>>> values)
 	{
 		assert(patterns.size() == values.size());
 		
@@ -504,11 +506,11 @@ public class MotifCode
 	}
 	
 	/**
-	 * Multiple-motif version of the code
+	 * Motifset version of the code
 	 * 
 	 * @param degrees
 	 * @param patterns
-	 * @param values List of lists of values (one list per pattern). These should
+	 * @param values Instances (outer list is over the motifs). These should
 	 *  be filtered so that each triple is only "captured" by one pattern. 
 	 * @param fastPY
 	 * @return
@@ -531,8 +533,7 @@ public class MotifCode
 				prefix(degrees.get(0).size()) + // - nr. of nodes
 				prefix(m) +                     // - nr. of links
 				prefix(degrees.get(2).size())); // - nr. of relations
-		
-		
+	
 		// * Pattern (structure)
 		double patternBits = 0.0;
 		for(DTGraph<Integer, Integer> pattern : patterns)
@@ -580,7 +581,6 @@ public class MotifCode
     		minus(degrees.get(2), degsub.get(2)));
 		
 		fm.add("template", EdgeListModel.codelength(degrees, fastPY ? Prior.COMPLETE_FAST : Prior.COMPLETE));
-		
 		
 		// * The labels
 		int c = 0;
@@ -632,7 +632,7 @@ public class MotifCode
 		fm.add("labels", labelBits);
 				
 		// System.out.println("Stored labels: " + toc());
-		fm.print(System.out);
+		// fm.print(System.out);
 		
 		return fm.total();
 	}

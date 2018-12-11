@@ -7,13 +7,16 @@ import static nl.peterbloem.kit.Functions.min;
 import static nl.peterbloem.kit.Functions.subset;
 import static nl.peterbloem.kit.Pair.p;
 import static nl.peterbloem.kit.Series.series;
+import static nl.peterbloem.motive.rdf.SimAnnealingMulti.Transition.*;
 import static nl.peterbloem.motive.rdf.Triple.t;
 import static org.junit.Assert.assertEquals;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -35,15 +38,16 @@ import nl.peterbloem.kit.Series;
 import nl.peterbloem.motive.rdf.EdgeListModel.Prior;
 
 /**
- * Implements a simple simulated annealing search for  
+ * Implements a simple simulated annealing search for motif sets: sets of motifs,
+ * which together compress the graph.
  * 
  * 
  * @author Peter
  *
  */
-public class SimAnnealing
+public class SimAnnealingMulti
 {
-	// * Number of positive motifs encountered
+	// * Number of positive motifsets encountered
 	public int numPos = 0;
 	public Double nullBits;
 	
@@ -56,7 +60,11 @@ public class SimAnnealing
 	public int maxSearchTime = 5;
 	// maximum size of pattern
 	public static final int MAX_PATTERN_SIZE = 10;
+	public static final int MAX_NUM_PATTERNS = 25;
+	public static final int RESULTS = 100;
 	
+	public MaxObserver<MotifSet> observer;
+
 	public static enum  Transition {
 		EXTEND, 
 		MAKE_NODE_VAR,
@@ -64,72 +72,97 @@ public class SimAnnealing
 		MAKE_NODE_CONST,
 		MAKE_LINK_CONST,
 		RM_EDGE,
-		COUPLE
+		COUPLE,
+		ADD_PATTERN,
+		RM_PATTERN
 	};
-	
-	public static List<Transition> transitions = asList(
-			Transition.EXTEND, 
-			Transition.MAKE_NODE_VAR,
-			Transition.MAKE_LINK_VAR,
-			Transition.MAKE_NODE_CONST,
-			Transition.MAKE_LINK_CONST,
-			Transition.RM_EDGE,
-			Transition.COUPLE);
-	
-//	public static List<Double> tWeights = asList(
-//			2.0, // EXTEND,         
-//			3.0, // MAKE_NODE_VAR,  
-//			3.0, // MAKE_LINK_VAR,  
-//			2.0, // MAKE_NODE_CONST,
-//			2.0, // MAKE_LINK_CONST,
-//			3.0, // RM_EDGE,        
-//			1.0  // COUPLE        
-//		); 
-
-
-	public static List<Double> tWeights = asList(
-			1.0, // EXTEND,         
-			1.0, // MAKE_NODE_VAR,  
-			1.0, // MAKE_LINK_VAR,  
-			1.0, // MAKE_NODE_CONST,
-			1.0, // MAKE_LINK_CONST,
-			1.0, // RM_EDGE,        
-			1.0  // COUPLE        
-	); 
-
 	
 	private double alpha = 0.9;
 	
-	private Map<DTGraph<Integer, Integer>, Double>  scores = new LinkedHashMap<>();
-	private Map<DTGraph<Integer, Integer>, Integer> frequencies = new LinkedHashMap<>();
-	
 	private KGraph graph;
-	List<List<Integer>> degrees;
+	private List<List<Integer>> degrees;
 
-	private DTGraph<Integer, Integer> pattern; 
-	private List<List<Integer>> matches;
-	public double score;
+	private MotifSet current;
+	
+	public class MotifSet implements Comparable<MotifSet>
+	{
+		private List<DTGraph<Integer, Integer>> motifs = new ArrayList<>();
+		private List<List<List<Integer>>> matches = new ArrayList<>();
+		
+		double score;
+		
+		public MotifSet(Collection<DTGraph<Integer, Integer>> patterns)
+		{
+			for(DTGraph<Integer, Integer> pattern : patterns)
+			{
+				DTGraph<Integer, Integer> cp = Nauty.canonical(pattern, true);
+				motifs.add(cp);
+				matches.add(Find.find(cp, graph, maxSearchTime));
+				
+				List<List<List<Integer>>> pruned = MotifCode.pruneValues(motifs, matches);
+				score = MotifCode.codelength(degrees, motifs, pruned, false);
+				
+				if(nullBits != null && (nullBits - score) > 0)
+					numPos ++;
+			}
+		}
+		
+		public double score()
+		{
+			return score;
+		}
+		
+		public List<DTGraph<Integer, Integer>> patterns()
+		{
+			return Collections.unmodifiableList(motifs);
+		}
+		
+		public List<List<List<Integer>>> matches()
+		{
+			return Collections.unmodifiableList(matches);
+		}
+		
+		public int size()
+		{
+			return motifs.size();
+		}
+
+		@Override
+		public int compareTo(MotifSet o)
+		{
+			return Double.compare(score(), o.score());
+		}
+	}
 	
 	/**
 	 * @param graph
 	 * @param alpha Probability of transitioning if the next state is worse than the current.
 	 */
-	public SimAnnealing(KGraph graph, double alpha)
+	public SimAnnealingMulti(KGraph graph, double alpha)
 	{
 		this(graph, alpha, 10);
 	}
 	
-	public SimAnnealing(KGraph graph, double alpha, int maxSearchTime)
+	public SimAnnealingMulti(KGraph graph, double alpha, int maxSearchTime)
 	{
 		this(graph, alpha, maxSearchTime, null);
 	}
 		
-	public SimAnnealing(KGraph graph, double alpha, int maxSearchTime, DTGraph<Integer, Integer> startPattern)
+	public SimAnnealingMulti(KGraph graph, double alpha, int maxSearchTime, 
+			DTGraph<Integer, Integer> startPattern)
 	{
 		this(graph, alpha, maxSearchTime, startPattern, null);
 	}
 	
-	public SimAnnealing(KGraph graph, double alpha, int maxSearchTime, DTGraph<Integer, Integer> startPattern, Double nullBits)
+	public SimAnnealingMulti(KGraph graph, double alpha, int maxSearchTime, 
+			DTGraph<Integer, Integer> startPattern, Double nullBits)
+	{
+		this(graph, alpha, maxSearchTime, startPattern, nullBits, null);
+	}
+	
+	public SimAnnealingMulti(KGraph graph, double alpha, int maxSearchTime, 
+			DTGraph<Integer, Integer> startPattern, Double nullBits,
+			MaxObserver<MotifSet> obs)
 	{
 		this.graph = graph;
 		this.alpha = alpha;
@@ -138,105 +171,92 @@ public class SimAnnealing
 		
 		degrees = KGraph.degrees(graph);
 	
+		List<DTGraph<Integer, Integer>> start = new ArrayList<>();
 		if(startPattern != null)
-		{
-			pattern = startPattern;
-		} else 
-		{
-			// - the starting pattern is a random triple with the object made a variable
-			Triple start = Functions.choose(graph.find(null, null, null));
-    		pattern = new MapDTGraph<>();
-    		DTNode<Integer, Integer> a = pattern.add(start.subject());
-    		DTNode<Integer, Integer> b = pattern.add(-1);
-    		a.connect(b, start.predicate());
-		}
+			start.add(startPattern);
+		else 
+			start.add(randomPattern());
 		
-		pattern = Nauty.canonical(pattern, true);
-		matches = Find.find(pattern, graph, this.maxSearchTime);
-		frequencies.put(pattern, matches.size());
+		current = new MotifSet(start);
 		
-		score = score(pattern, matches);
-				
-		if(nullBits != null && (nullBits - score) > 0)
-			numPos ++;
-	}
-	
-	private double score(DTGraph<Integer, Integer> pattern, List<List<Integer>> matches)
-	{
-		if(!scores.containsKey(pattern))
-		{			
-			matches = MotifCode.prune(pattern, matches);
-			double score = MotifCode.codelength(degrees, pattern, matches, true);
-			
-			if(nullBits != null && (nullBits - score) > 0)
-				numPos ++;
-				
-			scores.put(pattern, score);
-		}
-		
-		return scores.get(pattern);
-	}
-	
-	
-	public void iterate()
-	{
-		DTGraph<Integer, Integer> nwPattern = null;
-		while(nwPattern == null)
-		{		
-			int ind = Functions.choose(tWeights, Functions.sum(tWeights));
-			Transition trans = transitions.get(ind);
-			// System.out.println(trans);
-			// System.out.println("   " + pattern);
-
-			nwPattern = transition(pattern, trans, matches, graph);
-			
-			// System.out.println("   " + nwPattern);
-		}
-		
-		nwPattern = Nauty.canonical(nwPattern, true);
-		// System.out.println("   " + nwPattern);
-		
-		List<List<Integer>> nwMatches = Find.find(nwPattern, graph, this.maxSearchTime);
-		if(! Find.TIMED_OUT)
-			assert nwMatches.size() > 0;
-		
-		double nwScore = score(nwPattern, nwMatches);
-		frequencies.put(nwPattern, nwMatches.size());
-
-		if(nwScore < score || Global.random().nextDouble() < alpha)
-		{
-			// System.out.println(String.format("step. 	%.3f 	%.3f", score, nwScore));
-			
-			pattern = nwPattern; 
-			score = nwScore;
-			
-			matches = nwMatches;
-		} 
-		// else
-		// 		System.out.println(String.format("stay. 	%.3f 	%.3f", score, nwScore));
-
+		if(obs == null)
+			observer = new MaxObserver<>(RESULTS, Collections.reverseOrder()); // retain the lowest scores
+		else 
+			observer = obs;
+		observer.observe(current);
 	}
 
 	/**
-	 * 
+	 * Generate a random pattern consisting of a single triple
+	 * @return
+	 */
+	private DTGraph<Integer, Integer> randomPattern()
+	{
+		Triple start = Functions.choose(graph.find(null, null, null));
+		DTGraph<Integer, Integer> pattern = new MapDTGraph<>();
+		DTNode<Integer, Integer> a = pattern.add(start.subject());
+		DTNode<Integer, Integer> b = pattern.add(-1);
+		a.connect(b, start.predicate());
+		
+		return pattern;
+	}
+	
+	public void iterate()
+	{
+		Transition trans = Functions.choose(asList(Transition.values()));
+		MotifSet newNode = transition(current, trans);
+		
+		if(newNode.score() < current.score() || Global.random().nextDouble() < alpha)
+		{
+			current = newNode;
+			observer.observe(current);
+		}
+	}
+
+	/**
 	 * @param pattern
 	 * @param trans
 	 * @return The modified pattern
 	 */
-	public static DTGraph<Integer, Integer> transition(
-			DTGraph<Integer, Integer> pattern, 
-			Transition trans, 
-			List<List<Integer>> matches,
-			KGraph graph
-			)
+	public MotifSet transition(MotifSet current, Transition trans)
 	{
-		switch (trans) {
-		case EXTEND: {
+		List<DTGraph<Integer, Integer>> pts = new ArrayList<>(current.patterns());
+
+		if (trans == ADD_PATTERN) 
+		{				
+			if(current.size() >= MAX_NUM_PATTERNS)
+				return current;
+			
+			pts.add(randomPattern());
+			
+			return new MotifSet(pts);
+		}
+		
+		if (trans == RM_PATTERN) 
+		{	
+			if(current.size() <= 1)
+				return current;
+			
+			int index = Global.random().nextInt(current.size());
+			pts.remove(index);
+			
+			return new MotifSet(pts);
+		}
+		
+		int index = Global.random().nextInt(pts.size());
+		
+		DTGraph<Integer, Integer> pattern = pts.get(index), newPattern = null;
+		
+		List<List<Integer>> matches = current.matches().get(index);
+		
+		if (trans == EXTEND)
+		{
 			if(pattern.size() > MAX_PATTERN_SIZE)
-				return null;
+				return current;
 						
 			if(matches.isEmpty())
-				return null;
+				return current;
+			
 			List<Integer> match = choose(matches);
 			
 			// - choose a random node in the match, find its node in the graph
@@ -264,7 +284,7 @@ public class SimAnnealing
 			}
 
 			if(candidates.isEmpty())
-				return null;
+				return current;
 			
 			Pair<Triple, Boolean> pair = choose(candidates);
 			Triple newEdge = pair.first();
@@ -279,7 +299,7 @@ public class SimAnnealing
 			}
 			
 			// - add it to the pattern
-			DTGraph<Integer, Integer> newPattern = MapDTGraph.copy(pattern);
+			newPattern = MapDTGraph.copy(pattern);
 
 			int s = newEdge.subject(), p = newEdge.predicate(), o = newEdge.object();
 			if(! newPattern.labels().contains(s))
@@ -289,11 +309,10 @@ public class SimAnnealing
 			
 			newPattern.node(s).connect(newPattern.node(o), p);
 			
-			assert Utils.valid(newPattern);
-			
-			return newPattern;
-			
-		} case COUPLE: 
+			assert Utils.valid(newPattern);			
+		}
+	
+		if (trans == COUPLE) 
 		{
 			// - Collect all pairs of predicate variables such that at least one 
 			//   match has the same result for both
@@ -310,7 +329,7 @@ public class SimAnnealing
 			}
 					
 			if(candidates.isEmpty())
-				return null;
+				return current;
 			
 			// - Pick a random candidate
 		
@@ -321,7 +340,7 @@ public class SimAnnealing
 			
 			// - Make a new pattern where a is turned into b, and every variable tag
 			//   higher than b is shifted
-			DTGraph<Integer, Integer> newPattern = new MapDTGraph<Integer, Integer>();
+			newPattern = new MapDTGraph<Integer, Integer>();
 			
 			for(DTNode<Integer, Integer> node : pattern.nodes())
 				newPattern.add(node.label());
@@ -340,10 +359,9 @@ public class SimAnnealing
 			}
 			
 			assert Utils.valid(newPattern);
-			
-			return newPattern; 
-			
-		} case MAKE_LINK_CONST:
+		} 
+		
+		if(trans == MAKE_LINK_CONST)
 		{
 			// - Collect all predicate variables (make sure there's more than 1)
 			Set<Integer> vars = new LinkedHashSet<>();
@@ -352,7 +370,7 @@ public class SimAnnealing
 					vars.add(link.tag());
 			
 			if(vars.size() < 1)
-				return null;
+				return current;
 			
 			// - Pick one
 			int a = choose(vars); 
@@ -361,13 +379,13 @@ public class SimAnnealing
 			
 			// - Choose a random match in the graph
 			if(matches.isEmpty())
-				return null;
+				return current;
 			List<Integer> match = choose(matches);
 			int value = match.get(-a - 1);
 					
 			// - Make a new pattern where a is turned into the correct value, and 
 			//   all variables below it are shifted to keep everything contiguous 
-			DTGraph<Integer, Integer> newPattern = new MapDTGraph<Integer, Integer>();
+			newPattern = new MapDTGraph<Integer, Integer>();
 			
 			for(DTNode<Integer, Integer> node : pattern.nodes())
 				newPattern.add(node.label());
@@ -385,11 +403,10 @@ public class SimAnnealing
 					newPattern.get(link.to().index()), tag);
 			}
 			
-			assert Utils.valid(newPattern);
-			
-			return newPattern; 			
-			
-		} case MAKE_NODE_CONST:
+			assert Utils.valid(newPattern);			
+		} 
+		
+		if(trans == MAKE_NODE_CONST)
 		{
 			// - Collect all node variables (make sure there's more than 1)
 			Set<Integer> vars = new LinkedHashSet<>();
@@ -398,7 +415,7 @@ public class SimAnnealing
 					vars.add(node.label());
 			
 			if(vars.size() < 1)
-				return null;
+				return current;
 			
 			// - Pick one
 			int a = choose(vars); 
@@ -407,14 +424,14 @@ public class SimAnnealing
 			
 			// - Choose a random match in the graph
 			if(matches.isEmpty())
-				return null;
+				return current;
 			
 			List<Integer> match = choose(matches);
 			int value = match.get(- a - 1);
 					
 			// - Make a new pattern where a is turned into the correct value, and 
 			//   all variables below it are shifted to keep everything contiguous 
-			DTGraph<Integer, Integer> newPattern = new MapDTGraph<Integer, Integer>();
+			newPattern = new MapDTGraph<Integer, Integer>();
 			
 			for(DTNode<Integer, Integer> node : pattern.nodes())
 			{
@@ -451,11 +468,10 @@ public class SimAnnealing
 					newPattern.node(to), tag);
 			}
 			
-			assert Utils.valid(newPattern);
-			
-			return newPattern; 			
-			
-		} case MAKE_NODE_VAR:
+			assert Utils.valid(newPattern);			
+		} 
+		
+		if (trans == MAKE_NODE_VAR)
 		{
 			// - Find the next available variable value
 			int next = (- Utils.numVarLabels(pattern)) - 1;
@@ -466,14 +482,14 @@ public class SimAnnealing
 					constants.add(node.label());
 			
 			if(constants.isEmpty())
-				return null;
+				return current;
 			
 			// - Choose a random constant node
 			int target = choose(constants);
 			
 			// - Make a new pattern with the node replaced by a variable
 			//   Shift all variable predicates to keep things contiguous
-			DTGraph<Integer, Integer> newPattern = new MapDTGraph<Integer, Integer>();
+			newPattern = new MapDTGraph<Integer, Integer>();
 			
 			for(DTNode<Integer, Integer> node : pattern.nodes())
 			{
@@ -494,11 +510,10 @@ public class SimAnnealing
 					newPattern.get(link.to().index()), tag);
 			}
 			
-			assert Utils.valid(newPattern);
-			
-			return newPattern; 
-			
-		} case MAKE_LINK_VAR:
+			assert Utils.valid(newPattern);			
+		} 
+		
+		if(trans == MAKE_LINK_VAR)
 		{
 			// - Find the next available variable value
 			
@@ -514,13 +529,13 @@ public class SimAnnealing
 					constants.add(link.tag());
 			
 			if(constants.isEmpty())
-				return null;
+				return current;
 				
 			// - Choose a random constant predicate
 			int target = choose(constants);
 			
 			// - Make a new pattern with all occurrences replaced by a variable
-			DTGraph<Integer, Integer> newPattern = new MapDTGraph<Integer, Integer>();
+			newPattern = new MapDTGraph<Integer, Integer>();
 			
 			for(DTNode<Integer, Integer> node : pattern.nodes())
 				newPattern.add(node.label());
@@ -537,9 +552,9 @@ public class SimAnnealing
 			}
 			
 			assert Utils.valid(newPattern);
-			
-			return newPattern; 
-		} case RM_EDGE:
+		}
+		
+		if (trans == RM_EDGE)
 		{
 			// - Figure out which edges can be safely removed without creating 
 			//   a disconnected pattern
@@ -557,7 +572,7 @@ public class SimAnnealing
 			}
 						
 			if(triples.isEmpty())
-				return null;
+				return current;
 			
 			// - Pick a random one and create a new pattern with that edge 
 			//   removed
@@ -587,7 +602,7 @@ public class SimAnnealing
 			
 			List<Integer> variables = Functions.concat(nodeVars,  linkVars);
 			
-			DTGraph<Integer, Integer> newPattern = new MapDTGraph<Integer, Integer>();
+			newPattern = new MapDTGraph<Integer, Integer>();
 			
 			for(DTNode<Integer, Integer> node : newPattern0.nodes())
 			{
@@ -613,14 +628,14 @@ public class SimAnnealing
 				newPattern.node(from).connect(newPattern.node(to), tag);
 			}
 			
-			assert Utils.valid(newPattern);
-			
-			return newPattern;
-			
-		} default: 
-		{
-			return null;
-		}}
+			assert Utils.valid(newPattern);			
+		} 
+		
+		if(newPattern == null)
+			return current;
+		
+		pts.set(index, newPattern);
+		return new MotifSet(pts);
 	}
 	
 	/**
@@ -681,70 +696,11 @@ public class SimAnnealing
 		
 		return newPattern;
 	}
-
-	public List<DTGraph<Integer, Integer>> byScore(int k)
+	
+	public Collection<MotifSet> results()
 	{
-		List<DTGraph<Integer, Integer>> motifs = new ArrayList<>(scores.keySet());
-		
-		Comparator<DTGraph<Integer, Integer>> comp = new Comparator<DTGraph<Integer, Integer>>()
-		{
-			@Override
-			public int compare(DTGraph<Integer, Integer> m1, DTGraph<Integer, Integer> m2)
-			{
-				return Double.compare(scores.get(m1), scores.get(m2));
-			}	
-		};
-		
-		List<DTGraph<Integer, Integer>> result;
-		if(k >= motifs.size())
-			result = motifs;
-		else
-			result = MaxObserver.quickSelect(k, motifs, comp, false);
-				Collections.sort(result, comp);
-		
-		return result;
+		return observer.elements();
 	}
 	
-	public double score(DTGraph<Integer, Integer> motif)
-	{
-		return scores.get(motif);
-	}
 	
-	public List<DTGraph<Integer, Integer>> byFrequency(int k)
-	{
-		List<DTGraph<Integer, Integer>> motifs = new ArrayList<>(scores.keySet());
-		
-		Comparator<DTGraph<Integer, Integer>> comp = new Comparator<DTGraph<Integer, Integer>>()
-		{
-			@Override
-			public int compare(DTGraph<Integer, Integer> m1, DTGraph<Integer, Integer> m2)
-			{
-				return - Double.compare(frequencies.get(m1), frequencies.get(m2));
-			}
-		};
-		
-		List<DTGraph<Integer, Integer>> result;
-		if(k >= motifs.size())
-			result = motifs;
-		else
-			result = MaxObserver.quickSelect(k, motifs, comp, false);
-				Collections.sort(result, comp);
-		
-		return result;
-	}
-
-	public int frequency(DTGraph<Integer, Integer> motif)
-	{
-		return frequencies.get(motif);
-	}
-	
-	public Map<DTGraph<Integer, Integer>, Double> scores()
-	{
-		return Collections.unmodifiableMap(scores);
-	}
-	
-	public Map<DTGraph<Integer, Integer>, Integer> frequencies()
-	{
-		return Collections.unmodifiableMap(frequencies);
-	}
 }
