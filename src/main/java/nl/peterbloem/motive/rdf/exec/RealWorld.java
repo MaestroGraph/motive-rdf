@@ -42,18 +42,22 @@ public class RealWorld
 	public void main()
 		throws IOException
 	{
-		dataname = dataname.trim().toLowerCase();
+		// dataname = dataname.trim().toLowerCase();
 		
 		KGraph data;
 		List<String> labels = new ArrayList<>(), tags = new ArrayList<>();
-		if("dogfood".equals(dataname))
+		if("dogfood".equals(dataname.toLowerCase()))
 			data = Datasets.dogfood(labels, tags);
-		else if ("aifb".equals(dataname))
+		else if ("aifb".equals(dataname.toLowerCase()))
 			data = Datasets.aifb(labels, tags);
-		else if("mutag".equals(dataname))
+		else if("mutag".equals(dataname.toLowerCase()))
 			data = Datasets.mutag(labels, tags);
-		else
-			throw new IllegalArgumentException(format("Dataset name %s not recognized"));
+		else if(new File(dataname).exists())
+		{
+			File dataFile = new File(dataname);
+			data = KGraph.loadHDT(dataFile, labels, tags);
+		} else
+			throw new IllegalArgumentException(format("Dataset name %s not recognized or file not found", dataname));
 		
 		double nullBits = EdgeListModel.codelength(KGraph.degrees(data), Prior.ML);
 		

@@ -90,8 +90,11 @@ public class MultiParallel
 			Global.info("Encountered %d positive patterns.", numPos);
 	}
 	
+	private static int TOTAL = 0;
 	private class MultiRun implements Runnable
 	{
+		private int id = TOTAL++;
+		
 		@Override
 		public void run()
 		{
@@ -105,7 +108,7 @@ public class MultiParallel
 				search.iterate();
 				
 				if(++ itsFinished % 500 == 0)
-					Global.info("%d iterations finished.", itsFinished);
+					Global.info("thread %d: %d iterations finished.", id, itsFinished);
 			}
 
 			Global.info("Thread finished searching");

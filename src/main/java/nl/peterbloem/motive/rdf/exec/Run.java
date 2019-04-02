@@ -43,7 +43,7 @@ public class Run
 {
 	@Option(
 			name="--data",
-			usage="Dataset (dogfood, aifb, mutag)")
+			usage="Dataset (dogfood, aifb, mutag, or HDT file)")
 	private static String dataset = null;
 		
 	@Option(
@@ -63,6 +63,11 @@ public class Run
 			name="--samples",
 			usage="Number of samples to take.")
 	private static int samples = 5000000;
+	
+	@Option(
+			name="--pop-size",
+			usage="Population size (multi experiment).")
+	private static int populationSize = 500;
 	
 	@Option(
 			name="--repeats",
@@ -121,7 +126,7 @@ public class Run
 	private static boolean help = false;
 	
 	public static void main(String[] args)
-		throws IOException
+		throws IOException, InterruptedException
 	{
 		Global.info("Starting");
 		Global.randomSeed();
@@ -188,9 +193,10 @@ public class Run
     		Multi mlt = new Multi();
     		mlt.dataname = dataset;
     		mlt.iterations = iterations;
-    		mlt.alpha = alpha;
+    		mlt.populationSize = populationSize;
     		mlt.topK = topK;
     		mlt.maxSearchTime = maxTime;
+    		mlt.numThreads = Runtime.getRuntime().availableProcessors();
     		
     		mlt.main();
     	} else if(mode.toLowerCase().trim().equals("queries"))

@@ -10,6 +10,7 @@ mvn clean install
 ```
 
 To run one of the experiments, import it into an IDE like Eclipse and run ```Run.java```. Alternatively,
+
 compile it into a jar using:
 ```
 mvn clean install package -DskipTests

@@ -7,7 +7,7 @@ import static nl.peterbloem.kit.Functions.min;
 import static nl.peterbloem.kit.Functions.subset;
 import static nl.peterbloem.kit.Pair.p;
 import static nl.peterbloem.kit.Series.series;
-import static nl.peterbloem.motive.rdf.SimAnnealingMulti.Transition.*;
+import static nl.peterbloem.motive.rdf.GAMulti.Transition.*;
 import static nl.peterbloem.motive.rdf.Triple.t;
 import static org.junit.Assert.assertEquals;
 
@@ -38,14 +38,14 @@ import nl.peterbloem.kit.Series;
 import nl.peterbloem.motive.rdf.EdgeListModel.Prior;
 
 /**
- * Implements a simple simulated annealing search for motif sets: sets of motifs,
+ * Implements a simple genetic algorithm search for motif sets: sets of motifs,
  * which together compress the graph.
  * 
  * 
  * @author Peter
  *
  */
-public class SimAnnealingMulti
+public class GAMulti
 {
 	// * Number of positive motifsets encountered
 	public int numPos = 0;
@@ -63,7 +63,7 @@ public class SimAnnealingMulti
 	public static final int MAX_NUM_PATTERNS = 25;
 	public static final int RESULTS = 100;
 	
-	public MaxObserver<MotifSet> observer;
+	private  MaxObserver<MotifSet> observer;
 
 	public static enum  Transition {
 		EXTEND, 
@@ -82,8 +82,16 @@ public class SimAnnealingMulti
 	private KGraph graph;
 	private List<List<Integer>> degrees;
 
-	private MotifSet current;
+	private int populationSize;
+	private ArrayList<MotifSet> population;
 	
+	/**
+	 * Holds a collection of motifs which together are used to compress the 
+	 * graph. The compression is computed on construction. 
+	 * 
+	 * @author Peter
+	 *
+	 */
 	public class MotifSet implements Comparable<MotifSet>
 	{
 		private List<DTGraph<Integer, Integer>> motifs = new ArrayList<>();
@@ -134,56 +142,64 @@ public class SimAnnealingMulti
 		}
 	}
 	
-	/**
-	 * @param graph
-	 * @param alpha Probability of transitioning if the next state is worse than the current.
-	 */
-	public SimAnnealingMulti(KGraph graph, double alpha)
+	public GAMulti(KGraph graph, int maxSearchTime, 
+			Double nullBits,
+			int populationSize, MaxObserver<MotifSet> observer)
 	{
-		this(graph, alpha, 10);
-	}
-	
-	public SimAnnealingMulti(KGraph graph, double alpha, int maxSearchTime)
-	{
-		this(graph, alpha, maxSearchTime, null);
-	}
-		
-	public SimAnnealingMulti(KGraph graph, double alpha, int maxSearchTime, 
-			DTGraph<Integer, Integer> startPattern)
-	{
-		this(graph, alpha, maxSearchTime, startPattern, null);
-	}
-	
-	public SimAnnealingMulti(KGraph graph, double alpha, int maxSearchTime, 
-			DTGraph<Integer, Integer> startPattern, Double nullBits)
-	{
-		this(graph, alpha, maxSearchTime, startPattern, nullBits, null);
-	}
-	
-	public SimAnnealingMulti(KGraph graph, double alpha, int maxSearchTime, 
-			DTGraph<Integer, Integer> startPattern, Double nullBits,
-			MaxObserver<MotifSet> obs)
-	{
+		this.populationSize = populationSize;
 		this.graph = graph;
-		this.alpha = alpha;
 		this.maxSearchTime = maxSearchTime;
 		this.nullBits = nullBits;
 		
 		degrees = KGraph.degrees(graph);
 	
-		List<DTGraph<Integer, Integer>> start = new ArrayList<>();
-		if(startPattern != null)
-			start.add(startPattern);
-		else 
-			start.add(randomPattern());
+		this.population = new ArrayList<MotifSet>(populationSize * 2); 
 		
-		current = new MotifSet(start);
+		for(int i : series(populationSize))
+			this.population.add(new MotifSet(
+					Arrays.asList(randomPattern())
+				));
 		
-		if(obs == null)
-			observer = new MaxObserver<>(RESULTS, Collections.reverseOrder()); // retain the lowest scores
+		if(observer == null)
+			this.observer = new MaxObserver<>(RESULTS, Collections.reverseOrder()); // retain the lowest scores
 		else 
-			observer = obs;
-		observer.observe(current);
+			this.observer = observer;
+	
+		for(MotifSet set : this.population)
+			observer.observe(set);
+	}
+	
+	public MotifSet crossover(MotifSet mother, MotifSet father)
+	{
+		List<DTGraph<Integer, Integer>>
+			mPatterns = mother.patterns(),
+			fPatterns = father.patterns();	
+		
+		Set<DTGraph<Integer, Integer>> allSet = new LinkedHashSet<>();
+		allSet.addAll(mPatterns);
+		allSet.addAll(fPatterns);
+		
+		List<DTGraph<Integer, Integer>> all = new ArrayList<>(allSet);
+		
+		Collections.shuffle(all, Global.random());
+		
+		// * The size of the child is uniform between the size of the smallest 
+		//   parent - 1 and the size of thelargets parent + 1, and always at least 1
+		int min = Math.min(mother.size(), father.size());
+		int max = Math.max(mother.size(), father.size());
+		
+		min--; max++;
+		
+		int childSize = Global.random().nextInt(max - min) + min;
+		childSize = Math.max(1, childSize);
+		
+		MotifSet child = new MotifSet(new ArrayList<>(all.subList(0, childSize)));
+		
+		// * Apply a number of random transitions
+		for(int t : series(Global.random().nextInt(child.size())))
+			child = transition(child);
+			
+		return child;
 	}
 
 	/**
@@ -201,17 +217,27 @@ public class SimAnnealingMulti
 		return pattern;
 	}
 	
+	/**
+	 * Perform one step of the GA algorithm.
+	 * 
+	 */
 	public void iterate()
 	{
-		// * Choose a random transition and apply 
-		Transition trans = Functions.choose(asList(Transition.values()));
-		MotifSet newNode = transition(current, trans);
-		
-		if(newNode.score() < current.score() || Global.random().nextDouble() < alpha)
+		// * extend the population
+		for(int i : series(populationSize))
 		{
-			current = newNode;
-			observer.observe(current);
+			MotifSet child = crossover(choose(population), choose(population));
+		
+			population.add(child);
+			observer.observe(child);
 		}
+		
+		// * sort by score
+		Collections.sort(population);
+		
+		// * cull the worst half
+		population = new ArrayList<>(population.subList(0, populationSize));
+		
 	}
 
 	/**
@@ -221,8 +247,15 @@ public class SimAnnealingMulti
 	 * @param trans
 	 * @return The modified pattern
 	 */
+	public MotifSet transition(MotifSet current)
+	{
+		Transition trans = Functions.choose(asList(Transition.values()));
+		return transition(current, trans);
+	}
+	
 	public MotifSet transition(MotifSet current, Transition trans)
 	{
+		
 		List<DTGraph<Integer, Integer>> pts = new ArrayList<>(current.patterns());
 
 		if (trans == ADD_PATTERN) 

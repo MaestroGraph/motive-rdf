@@ -1213,7 +1213,7 @@ public class KGraph implements
 	{
 		InputStream instr = 
 				file.getName().endsWith(".gz") ?
-			    new BufferedInputStream(new GZIPInputStream(new FileInputStream(file))) :
+			    new BufferedInputStream(new  GZIPInputStream(new FileInputStream(file))) :
 				new BufferedInputStream(new FileInputStream(file));
 			    
 		return loadHDT(instr, nodes, relations); 
@@ -1243,6 +1243,8 @@ public class KGraph implements
     		int estTotal = (int)it.estimatedNumResults(), total = 0;
     
     		int nextIndex = 0;
+    		
+    		Global.info("loading: pass one");
         	while(it.hasNext()) 
         	{
         		TripleString ts = it.next();
@@ -1276,8 +1278,8 @@ public class KGraph implements
         			relations.add(predicate);
         		}
         		  
-        		total++;
-        		// dot(i++, total);
+        		// total++;
+        		dot(total++, estTotal);
         	}
         	
     		triples = new ArrayList<Triple>(total); 
@@ -1285,6 +1287,8 @@ public class KGraph implements
         	// * Pass two : extract the triples
      		it = hdt.search("", "", "");
      	        
+     		int i = 0;
+    		Global.info("loading: pass two.");
         	while(it.hasNext()) 
         	{
         		TripleString ts = it.next();
@@ -1299,7 +1303,7 @@ public class KGraph implements
         		
         		triples.add(t(s, p, o));
         		    							        		
-        		// dot(i++, total);
+        		dot(i++, total);
         	}
     	} catch (NotFoundException e)
     	{
