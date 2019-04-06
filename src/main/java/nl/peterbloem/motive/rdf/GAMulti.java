@@ -63,8 +63,11 @@ public class GAMulti
 	public static final int MAX_NUM_PATTERNS = 25;
 	public static final int RESULTS = 100;
 	
-	private  MaxObserver<MotifSet> observer;
-
+	private Map<Set<DTGraph<Integer, Integer>>, Double> scoreCache = new LinkedHashMap<>();
+	private Map<Set<DTGraph<Integer, Integer>>, 
+				Map<DTGraph<Integer, Integer>, 
+					List<List<Integer>>>> matchCache = new LinkedHashMap<>();
+	
 	public static enum  Transition {
 		EXTEND, 
 		MAKE_NODE_VAR,
@@ -94,40 +97,59 @@ public class GAMulti
 	 */
 	public class MotifSet implements Comparable<MotifSet>
 	{
-		private List<DTGraph<Integer, Integer>> motifs = new ArrayList<>();
-		private List<List<List<Integer>>> matches = new ArrayList<>();
+		private Set<DTGraph<Integer, Integer>> motifs = new LinkedHashSet<>();
 		
-		double score;
-		
+		/**
+		 * NOTE: Patterns should be canonicalized before being passed to the 
+		 * constructor. 
+		 * 
+		 * @param patterns
+		 */
 		public MotifSet(Collection<DTGraph<Integer, Integer>> patterns)
 		{
-			for(DTGraph<Integer, Integer> pattern : patterns)
-			{
-				DTGraph<Integer, Integer> cp = Nauty.canonical(pattern, true);
-				motifs.add(cp);
-				matches.add(Find.find(cp, graph, maxSearchTime));
-				
-				List<List<List<Integer>>> pruned = MotifCode.pruneValues(motifs, matches);
-				score = MotifCode.codelength(degrees, motifs, pruned, false);
-				
-				if(nullBits != null && (nullBits - score) > 0)
-					numPos ++;
-			}
+			motifs.addAll(patterns);
 		}
 		
 		public double score()
 		{
+			if(scoreCache.containsKey(motifs))
+				return scoreCache.get(motifs);
+			
+			List<List<List<Integer>>> pruned = MotifCode.pruneValues(patterns(), matches());
+			double score = MotifCode.codelength(degrees, new ArrayList<>(motifs), pruned, false);
+			scoreCache.put(motifs, score);
+			
 			return score;
 		}
 		
 		public List<DTGraph<Integer, Integer>> patterns()
 		{
-			return Collections.unmodifiableList(motifs);
+			return new ArrayList<>(motifs);
 		}
 		
 		public List<List<List<Integer>>> matches()
 		{
-			return Collections.unmodifiableList(matches);
+			if(! matchCache.containsKey(motifs))
+			{
+				Map<DTGraph<Integer, Integer>, List<List<Integer>>> matches = new LinkedHashMap<>();
+    			
+    			for(DTGraph<Integer, Integer> pattern : motifs)
+    			{
+    				List<List<Integer>> pMatches = Find.find(pattern, graph, maxSearchTime);
+       				matches.put(pattern, pMatches);
+    			}
+    			
+    			matchCache.put(motifs, matches);
+			}
+		
+			Map<DTGraph<Integer, Integer>, List<List<Integer>>> matches = 
+					matchCache.get(motifs);
+			
+			List<List<List<Integer>>> result = new ArrayList<>(this.size());
+			for(DTGraph<Integer, Integer> pattern : patterns())
+				result.add(matches.get(pattern));
+		
+			return result;
 		}
 		
 		public int size()
@@ -140,11 +162,47 @@ public class GAMulti
 		{
 			return Double.compare(score(), o.score());
 		}
+
+		@Override
+		public int hashCode()
+		{
+			final int prime = 31;
+			int result = 1;
+			result = prime * result + getOuterType().hashCode();
+			result = prime * result + ((motifs == null) ? 0 : motifs.hashCode());
+			return result;
+		}
+
+		@Override
+		public boolean equals(Object obj)
+		{
+			if (this == obj)
+				return true;
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+			MotifSet other = (MotifSet) obj;
+			if (!getOuterType().equals(other.getOuterType()))
+				return false;
+			if (motifs == null)
+			{
+				if (other.motifs != null)
+					return false;
+			} else if (!motifs.equals(other.motifs))
+				return false;
+			return true;
+		}
+
+		private GAMulti getOuterType()
+		{
+			return GAMulti.this;
+		}
 	}
 	
 	public GAMulti(KGraph graph, int maxSearchTime, 
 			Double nullBits,
-			int populationSize, MaxObserver<MotifSet> observer)
+			int populationSize)
 	{
 		this.populationSize = populationSize;
 		this.graph = graph;
@@ -160,13 +218,13 @@ public class GAMulti
 					Arrays.asList(randomPattern())
 				));
 		
-		if(observer == null)
-			this.observer = new MaxObserver<>(RESULTS, Collections.reverseOrder()); // retain the lowest scores
-		else 
-			this.observer = observer;
-	
-		for(MotifSet set : this.population)
-			observer.observe(set);
+//		if(observer == null)
+//			this.observer = new MaxObserver<>(RESULTS, Collections.reverseOrder()); // retain the lowest scores
+//		else 
+//			this.observer = observer;
+//	
+//		for(MotifSet set : this.population)
+//			observer.observe(set);
 	}
 	
 	public MotifSet crossover(MotifSet mother, MotifSet father)
@@ -195,8 +253,8 @@ public class GAMulti
 		
 		MotifSet child = new MotifSet(new ArrayList<>(all.subList(0, childSize)));
 		
-		// * Apply a number of random transitions
-		for(int t : series(Global.random().nextInt(child.size())))
+		// * Apply a number of random transitions (at least one)
+		for(int t : series(Global.random().nextInt(child.size() + 1) + 1))
 			child = transition(child);
 			
 		return child;
@@ -229,7 +287,7 @@ public class GAMulti
 			MotifSet child = crossover(choose(population), choose(population));
 		
 			population.add(child);
-			observer.observe(child);
+//			observer.observe(child);
 		}
 		
 		// * sort by score
@@ -280,7 +338,6 @@ public class GAMulti
 		}
 		
 		int index = Global.random().nextInt(pts.size());
-		
 		DTGraph<Integer, Integer> pattern = pts.get(index), newPattern = null;
 		
 		List<List<Integer>> matches = current.matches().get(index);
@@ -368,7 +425,6 @@ public class GAMulti
 				return current;
 			
 			// - Pick a random candidate
-		
 			Pair<Integer, Integer> cand = choose(candidates);
 			int a = cand.first(), b = cand.second();  
 						
@@ -546,7 +602,14 @@ public class GAMulti
 					newPattern.get(link.to().index()), tag);
 			}
 			
-			assert Utils.valid(newPattern);			
+			try {
+				assert Utils.valid(newPattern);
+			} catch (AssertionError e)
+			{
+				System.out.println(pattern);
+				System.out.println(newPattern);
+				throw e;
+			}
 		} 
 		
 		if(trans == MAKE_LINK_VAR)
@@ -587,7 +650,15 @@ public class GAMulti
 					newPattern.get(link.to().index()), tag);
 			}
 			
-			assert Utils.valid(newPattern);
+			
+			try {
+				assert Utils.valid(newPattern);
+			} catch (AssertionError e)
+			{
+				System.out.println(pattern);
+				System.out.println(newPattern);
+				throw e;
+			}
 		}
 		
 		if (trans == RM_EDGE)
@@ -670,6 +741,12 @@ public class GAMulti
 		if(newPattern == null)
 			return current;
 		
+		assert Utils.valid(newPattern);
+		
+		newPattern = Nauty.canonical(newPattern, true); 
+		
+		assert Utils.valid(newPattern);
+		
 		pts.set(index, newPattern);
 		return new MotifSet(pts);
 	}
@@ -733,9 +810,18 @@ public class GAMulti
 		return newPattern;
 	}
 	
+	/**
+	 * Returns all motifs encountered (unsorted)
+	 * @return
+	 */
 	public Collection<MotifSet> results()
 	{
-		return observer.elements();
+		List<MotifSet> results = new ArrayList<>(scoreCache.size());
+		
+		for(Set<DTGraph<Integer, Integer>> motifs : scoreCache.keySet())
+			results.add(new MotifSet(motifs));
+			
+		return results;
 	}
 	
 	

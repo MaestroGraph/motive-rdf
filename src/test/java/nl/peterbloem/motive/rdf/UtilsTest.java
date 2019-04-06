@@ -253,6 +253,34 @@ public class UtilsTest
     
     		assertTrue(Utils.valid(graph));
 		}
+		{
+			// digraph {30880 -> -1 [label=-1]; 30880 -> 30164 [label=-2]}
+			DTGraph<Integer, Integer> graph = new MapDTGraph<>();
+    		DTNode<Integer, Integer> m1 = graph.add(30880),
+    		                         m2 = graph.add(-1),
+    		                         m3 = graph.add(30164);
+    		
+    		m1.connect(m2, -1);
+    		m1.connect(m3, -2);
+    		
+    		System.out.println(graph);
+    
+    		assertFalse(Utils.valid(graph)); // variable node has the same label as variable tag
+			
+		}
+		{
+			// digraph {44726 -> -1 [label=-1]}
+			DTGraph<Integer, Integer> graph = new MapDTGraph<>();
+    		DTNode<Integer, Integer> m1 = graph.add(44726),
+    		                         m2 = graph.add(-1);
+    		
+    		m1.connect(m2, -1);
+    		
+    		System.out.println(graph);
+    
+    		assertFalse(Utils.valid(graph)); // variable node has the same label as variable tag
+		
+		}
 	}
 	
 }

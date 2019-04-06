@@ -49,10 +49,7 @@ public class Run
 	@Option(
 			name="--logfile",
 			usage="Query log (for the queries experiment).")
-	private static File logfile = null;
-	
-//	@Option(name="--file", usage="Input file: an HDT file.")
-//	private static File file;	
+	private static File logfile = null;	
 	
 	@Option(
 			name="--experiment",
@@ -77,7 +74,7 @@ public class Run
 	@Option(
 			name="--num-threads",
 			usage="Number of threads running concurrently (synth-rep experiment).")
-	private static int numThreads = 32;
+	private static int numThreads = -1;
 	
 	@Option(
 			name="--max-instance",
@@ -112,7 +109,7 @@ public class Run
 	@Option(
 			name="--topk",
 			usage="Nr. of motifs to extract.")
-	private static int topK = 50000;
+	private static int topK = 100;
 	
 	@Option(
 			name="--to-csv",
@@ -196,7 +193,7 @@ public class Run
     		mlt.populationSize = populationSize;
     		mlt.topK = topK;
     		mlt.maxSearchTime = maxTime;
-    		mlt.numThreads = Runtime.getRuntime().availableProcessors();
+    		mlt.numThreads = numThreads == -1 ? Runtime.getRuntime().availableProcessors() : numThreads ;
     		
     		mlt.main();
     	} else if(mode.toLowerCase().trim().equals("queries"))

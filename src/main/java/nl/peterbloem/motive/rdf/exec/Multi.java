@@ -11,7 +11,9 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -53,7 +55,9 @@ public class Multi
 	
 	public int numThreads;
 	
-	private MaxObserver<GAMulti.MotifSet> observer;
+	public List<GAMulti> searches = new ArrayList<>();
+	
+	// private MaxObserver<GAMulti.MotifSet> observer;
 
 	public void main()
 		throws IOException, InterruptedException
@@ -81,7 +85,7 @@ public class Multi
 		Global.info("Done. Searching.");
 		Global.info("-- using %d separate processes.", numThreads);
 
-		observer = new MaxObserver<>(topK, Collections.reverseOrder()); // retain the lowest scores
+		// observer = new MaxObserver<>(topK, Collections.reverseOrder()); // retain the lowest scores
 				
 		ExecutorService exec = Executors.newFixedThreadPool(numThreads);
 		for(int t : series(numThreads)) 
@@ -92,8 +96,17 @@ public class Multi
 				
 		Global.info("Search finished.");
 		
+		Set<GAMulti.MotifSet> allResults = new LinkedHashSet<>();
+		for(GAMulti run : searches)
+			allResults.addAll(run.results());
+		
+		List<GAMulti.MotifSet> all = new ArrayList<>(allResults);
+		Collections.sort(all);
+		if(all.size() > topK)
+			all = all.subList(0, topK);
+		
 		BufferedWriter out = new BufferedWriter(new FileWriter(new File("motifs-byscore.latex")));
-		for(GAMulti.MotifSet result : observer.elements())
+		for(GAMulti.MotifSet result : allResults)
 		{
 			double factor = nullBits - result.score();
 						
@@ -121,7 +134,7 @@ public class Multi
 		out.close();
 		
 		out = new BufferedWriter(new FileWriter(new File("motifs-byscore.txt")));
-		for(GAMulti.MotifSet result : observer.elements())
+		for(GAMulti.MotifSet result : allResults)
 		{
 			double factor = nullBits - result.score();
 			boolean first = true;
@@ -165,11 +178,13 @@ public class Multi
 	private class GARun implements Runnable
 	{
 		private int id = NUM++;
+		private GAMulti search;
 		
 		@Override
 		public void run()
 		{
-			GAMulti search = new GAMulti(data, maxSearchTime, nullBits, populationSize, observer);
+			search = new GAMulti(data, maxSearchTime, nullBits, populationSize);
+			searches.add(search);
 
 			for(int i : series(iterations))
 			{
@@ -181,6 +196,6 @@ public class Multi
 			}
 
 			Global.info("Thread finished searching");
-		}		
+		}
 	}
 }

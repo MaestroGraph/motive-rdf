@@ -340,7 +340,17 @@ public abstract class Utils
 		
 		List<Triple> result = new ArrayList<>((int)pattern.numLinks());
 		
-		assert values.size() == numVariables(pattern);
+		try {
+			assert values.size() == numVariables(pattern);
+		} catch(AssertionError e)
+		{
+			System.out.println(pattern);
+			System.out.println(values.size());
+			System.out.println(values);
+			
+			throw e;
+		}
+	
 				
 		for(DTLink<Integer, Integer> link : pattern.links())
 		{
@@ -362,7 +372,7 @@ public abstract class Utils
 	}
 	
 	/**
-	 * Checks whether a given patter has valid variable tags and labels. That is
+	 * Checks whether a given pattern has valid variable tags and labels. That is
 	 * all negative tags and labels should be contiguous, and variable tags
 	 * should be smaller than variable labels.
 	 * 
